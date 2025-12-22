@@ -3,9 +3,17 @@ import {
   approveDriversLicense,
   rejectDriversLicense,
 } from "@/services/drivers-license.service";
+import {
+  approveVehicleRegistration,
+  rejectVehicleRegistration,
+} from "@/services/vehicle-registration.service";
+import {
+  approveInsurancePolicy,
+  rejectInsurancePolicy,
+} from "@/services/insurance-policy.service";
 
 /**
- * POST /api/approvals/:id/approve
+ * POST /api/approvals/:id
  * 申請を承認
  */
 export async function POST(
@@ -17,10 +25,24 @@ export async function POST(
     const body = await request.json();
     const { type } = body; // "license" | "vehicle" | "insurance"
 
-    // TODO: type に応じて適切なサービスを呼び出す
-    // 現在は免許証のみ実装
-    if (type === "license") {
-      await approveDriversLicense(id);
+    switch (type) {
+      case "license":
+        await approveDriversLicense(id);
+        break;
+      case "vehicle":
+        await approveVehicleRegistration(id);
+        break;
+      case "insurance":
+        await approveInsurancePolicy(id);
+        break;
+      default:
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Invalid type",
+          },
+          { status: 400 }
+        );
     }
 
     return NextResponse.json({
@@ -28,7 +50,7 @@ export async function POST(
       message: "Application approved successfully",
     });
   } catch (error) {
-    console.error("Error in POST /api/approvals/:id/approve:", error);
+    console.error("Error in POST /api/approvals/:id:", error);
     return NextResponse.json(
       {
         success: false,
