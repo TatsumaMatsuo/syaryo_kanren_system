@@ -1,6 +1,6 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   providers: [
     {
       id: "lark",

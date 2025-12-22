@@ -28,7 +28,7 @@ export async function getBaseRecords(tableId: string, params?: {
       },
       params: {
         filter: params?.filter,
-        sort: params?.sort,
+        sort: params?.sort ? JSON.stringify(params.sort) : undefined,
         page_size: params?.pageSize || 100,
         page_token: params?.pageToken,
       },

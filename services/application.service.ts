@@ -104,9 +104,9 @@ export async function getApplicationOverview(
     );
 
     // 社員マスタを基準に結合
-    const overviews: ApplicationOverview[] =
+    const overviewsRaw =
       employeesResponse.data?.items
-        ?.map((item: any) => {
+        ?.map((item: any): ApplicationOverview | null => {
           const empId = item.fields.employee_id;
           const license = licensesMap.get(empId);
           const vehicle = vehiclesMap.get(empId);
@@ -136,8 +136,11 @@ export async function getApplicationOverview(
             vehicle,
             insurance,
           };
-        })
-        .filter(Boolean) || [];
+        }) || [];
+
+    const overviews: ApplicationOverview[] = overviewsRaw.filter(
+      (item): item is ApplicationOverview => item !== null
+    );
 
     return overviews;
   } catch (error) {
