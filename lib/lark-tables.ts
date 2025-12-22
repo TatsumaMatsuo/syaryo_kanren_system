@@ -17,6 +17,9 @@ export const LARK_TABLES = {
 
   // 社員マスタテーブル
   EMPLOYEES: process.env.LARK_TABLE_EMPLOYEES || "",
+
+  // ユーザー権限テーブル
+  USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "",
 } as const;
 
 /**
@@ -87,6 +90,18 @@ export const EMPLOYEE_FIELDS = {
   employment_status: "employment_status",
   hire_date: "hire_date",
   resignation_date: "resignation_date",
+  created_at: "created_at",
+  updated_at: "updated_at",
+} as const;
+
+export const USER_PERMISSION_FIELDS = {
+  id: "id",
+  lark_user_id: "lark_user_id",
+  user_name: "user_name",
+  user_email: "user_email",
+  role: "role",
+  granted_by: "granted_by",
+  granted_at: "granted_at",
   created_at: "created_at",
   updated_at: "updated_at",
 } as const;

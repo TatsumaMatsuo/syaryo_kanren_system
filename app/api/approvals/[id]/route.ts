@@ -11,15 +11,22 @@ import {
   approveInsurancePolicy,
   rejectInsurancePolicy,
 } from "@/services/insurance-policy.service";
+import { requireAdmin } from "@/lib/auth-utils";
 
 /**
  * POST /api/approvals/:id
- * 申請を承認
+ * 申請を承認（管理者のみ）
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // 管理者権限チェック
+  const authCheck = await requireAdmin();
+  if (!authCheck.authorized) {
+    return authCheck.response;
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();

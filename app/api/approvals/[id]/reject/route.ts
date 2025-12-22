@@ -2,15 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { rejectDriversLicense } from "@/services/drivers-license.service";
 import { rejectVehicleRegistration } from "@/services/vehicle-registration.service";
 import { rejectInsurancePolicy } from "@/services/insurance-policy.service";
+import { requireAdmin } from "@/lib/auth-utils";
 
 /**
  * POST /api/approvals/:id/reject
- * 申請を却下
+ * 申請を却下（管理者のみ）
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // 管理者権限チェック
+  const authCheck = await requireAdmin();
+  if (!authCheck.authorized) {
+    return authCheck.response;
+  }
+
   try {
     const { id } = await params;
     const body = await request.json();

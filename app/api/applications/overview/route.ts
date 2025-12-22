@@ -4,16 +4,23 @@ import {
   getPendingApplications,
   getApprovedApplications,
 } from "@/services/application.service";
+import { requireViewPermission } from "@/lib/auth-utils";
 
 /**
  * GET /api/applications/overview
- * 申請の統合ビューを取得
+ * 申請の統合ビューを取得（管理者・閲覧者のみ）
  *
  * Query Parameters:
  * - employeeId: 社員ID（オプション）
  * - filter: "pending" | "approved" | "all"（デフォルト: "all"）
  */
 export async function GET(request: NextRequest) {
+  // 閲覧権限チェック
+  const authCheck = await requireViewPermission();
+  if (!authCheck.authorized) {
+    return authCheck.response;
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const employeeId = searchParams.get("employeeId") || undefined;

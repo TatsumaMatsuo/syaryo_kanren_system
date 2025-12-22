@@ -4,6 +4,7 @@ export type Status = "temporary" | "approved";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type UserRole = "applicant" | "admin";
 export type EmploymentStatus = "active" | "resigned";
+export type PermissionRole = "admin" | "viewer";
 
 // 社員型
 export interface Employee {
@@ -94,4 +95,35 @@ export interface Notification {
   message: string;
   sent_at: Date;
   read: boolean;
+}
+
+// ユーザー権限型
+export interface UserPermission {
+  id: string;
+  lark_user_id: string;
+  user_name: string;
+  user_email: string;
+  role: PermissionRole;
+  granted_by: string;
+  granted_at: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// Larkユーザー型
+export interface LarkUser {
+  open_id: string;
+  union_id?: string;
+  user_id?: string;
+  name: string;
+  en_name?: string;
+  email: string;
+  mobile?: string;
+  avatar?: {
+    avatar_72?: string;
+    avatar_240?: string;
+    avatar_640?: string;
+    avatar_origin?: string;
+  };
+  department_ids?: string[];
 }

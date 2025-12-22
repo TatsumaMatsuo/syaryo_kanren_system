@@ -111,6 +111,36 @@
 
 ---
 
+### 5. ユーザー権限テーブル (user_permissions)
+
+| カラム名 | データ型 | 必須 | 説明 |
+|---------|---------|------|------|
+| id | TEXT | ○ | 主キー（UUID） |
+| lark_user_id | TEXT | ○ | Larkユーザー識別子（open_id） |
+| user_name | TEXT | ○ | ユーザー名 |
+| user_email | TEXT | ○ | メールアドレス |
+| role | TEXT | ○ | 権限レベル（admin/viewer） |
+| granted_by | TEXT | ○ | 付与者のLarkユーザーID |
+| granted_at | DATETIME | ○ | 権限付与日時 |
+| created_at | DATETIME | ○ | 作成日時 |
+| updated_at | DATETIME | ○ | 更新日時 |
+
+**インデックス:**
+- lark_user_id（ユニーク）
+- role
+
+**権限レベル:**
+- `admin`: 管理者（全ての操作が可能）
+  - 申請の承認・却下
+  - ユーザー権限の管理
+  - 全データの閲覧・編集
+- `viewer`: 閲覧者（読み取り専用）
+  - 申請の閲覧のみ
+  - 承認・却下不可
+  - ユーザー権限管理不可
+
+---
+
 ## 統合ビュー (管理者画面用)
 
 ### application_overview_view
