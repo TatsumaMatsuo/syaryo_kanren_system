@@ -5,6 +5,12 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type UserRole = "applicant" | "admin";
 export type EmploymentStatus = "active" | "resigned";
 export type PermissionRole = "admin" | "viewer";
+export type NotificationType =
+  | "expiration_warning"
+  | "expiration_alert"
+  | "approval"
+  | "rejection";
+export type NotificationStatus = "sent" | "failed";
 
 // 社員型
 export interface Employee {
@@ -86,15 +92,18 @@ export interface ApplicationOverview {
   insurance: InsurancePolicy;
 }
 
-// 通知型
-export interface Notification {
+// 通知履歴型
+export interface NotificationHistory {
   id: string;
   recipient_id: string;
-  type: "approval" | "rejection" | "expiration_warning" | "expiration_alert";
+  notification_type: NotificationType;
+  document_type?: "license" | "vehicle" | "insurance";
+  document_id?: string;
   title: string;
   message: string;
   sent_at: Date;
-  read: boolean;
+  status: NotificationStatus;
+  created_at: Date;
 }
 
 // ユーザー権限型

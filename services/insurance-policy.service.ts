@@ -213,3 +213,46 @@ export async function getExpiringInsurancePolicies(): Promise<InsurancePolicy[]>
     throw error;
   }
 }
+
+/**
+ * 有効期限切れの任意保険証を取得
+ */
+export async function getExpiredInsurancePolicies(): Promise<InsurancePolicy[]> {
+  try {
+    const today = new Date();
+
+    const filter = `AND(
+      CurrentValue.[deleted_flag]=false,
+      CurrentValue.[status]="approved",
+      CurrentValue.[coverage_end_date]<${today.getTime()}
+    )`;
+
+    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
+      filter,
+    });
+
+    const policies: InsurancePolicy[] =
+      response.data?.items?.map((item: any) => ({
+        id: item.record_id,
+        employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
+        policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
+        insurance_company: item.fields[INSURANCE_POLICY_FIELDS.insurance_company],
+        policy_type: item.fields[INSURANCE_POLICY_FIELDS.policy_type],
+        coverage_start_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_start_date]),
+        coverage_end_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_end_date]),
+        insured_amount: item.fields[INSURANCE_POLICY_FIELDS.insured_amount],
+        image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
+        status: item.fields[INSURANCE_POLICY_FIELDS.status],
+        approval_status: item.fields[INSURANCE_POLICY_FIELDS.approval_status],
+        rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
+        created_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at]),
+        updated_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.updated_at]),
+        deleted_flag: false,
+      })) || [];
+
+    return policies;
+  } catch (error) {
+    console.error("Error fetching expired insurance policies:", error);
+    throw error;
+  }
+}

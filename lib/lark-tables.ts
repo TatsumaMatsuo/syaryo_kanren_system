@@ -20,6 +20,9 @@ export const LARK_TABLES = {
 
   // ユーザー権限テーブル
   USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "",
+
+  // 通知履歴テーブル
+  NOTIFICATION_HISTORY: process.env.LARK_TABLE_NOTIFICATION_HISTORY || "",
 } as const;
 
 /**
@@ -104,4 +107,17 @@ export const USER_PERMISSION_FIELDS = {
   granted_at: "granted_at",
   created_at: "created_at",
   updated_at: "updated_at",
+} as const;
+
+export const NOTIFICATION_HISTORY_FIELDS = {
+  id: "id",
+  recipient_id: "recipient_id",
+  notification_type: "notification_type",
+  document_type: "document_type",
+  document_id: "document_id",
+  title: "title",
+  message: "message",
+  sent_at: "sent_at",
+  status: "status",
+  created_at: "created_at",
 } as const;

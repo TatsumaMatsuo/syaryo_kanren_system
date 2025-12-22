@@ -201,3 +201,44 @@ export async function getExpiringDriversLicenses(): Promise<DriversLicense[]> {
     throw error;
   }
 }
+
+/**
+ * 有効期限切れの免許証を取得
+ */
+export async function getExpiredDriversLicenses(): Promise<DriversLicense[]> {
+  try {
+    const today = new Date();
+
+    const filter = `AND(
+      CurrentValue.[deleted_flag]=false,
+      CurrentValue.[status]="approved",
+      CurrentValue.[expiration_date]<${today.getTime()}
+    )`;
+
+    const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
+      filter,
+    });
+
+    const licenses: DriversLicense[] =
+      response.data?.items?.map((item: any) => ({
+        id: item.record_id,
+        employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
+        license_number: item.fields[DRIVERS_LICENSE_FIELDS.license_number],
+        license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
+        issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
+        expiration_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.expiration_date]),
+        image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
+        status: item.fields[DRIVERS_LICENSE_FIELDS.status],
+        approval_status: item.fields[DRIVERS_LICENSE_FIELDS.approval_status],
+        rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
+        created_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at]),
+        updated_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at]),
+        deleted_flag: false,
+      })) || [];
+
+    return licenses;
+  } catch (error) {
+    console.error("Error fetching expired drivers licenses:", error);
+    throw error;
+  }
+}

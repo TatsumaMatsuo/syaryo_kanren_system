@@ -217,3 +217,48 @@ export async function getExpiringVehicleRegistrations(): Promise<VehicleRegistra
     throw error;
   }
 }
+
+/**
+ * 有効期限切れの車検証を取得
+ */
+export async function getExpiredVehicleRegistrations(): Promise<VehicleRegistration[]> {
+  try {
+    const today = new Date();
+
+    const filter = `AND(
+      CurrentValue.[deleted_flag]=false,
+      CurrentValue.[status]="approved",
+      CurrentValue.[inspection_expiration_date]<${today.getTime()}
+    )`;
+
+    const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
+      filter,
+    });
+
+    const registrations: VehicleRegistration[] =
+      response.data?.items?.map((item: any) => ({
+        id: item.record_id,
+        employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
+        vehicle_number: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number],
+        vehicle_type: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_type],
+        manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
+        model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
+        inspection_expiration_date: new Date(
+          item.fields[VEHICLE_REGISTRATION_FIELDS.inspection_expiration_date]
+        ),
+        owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
+        image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
+        status: item.fields[VEHICLE_REGISTRATION_FIELDS.status],
+        approval_status: item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status],
+        rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
+        created_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.created_at]),
+        updated_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.updated_at]),
+        deleted_flag: false,
+      })) || [];
+
+    return registrations;
+  } catch (error) {
+    console.error("Error fetching expired vehicle registrations:", error);
+    throw error;
+  }
+}

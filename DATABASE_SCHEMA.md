@@ -141,6 +141,35 @@
 
 ---
 
+### 6. 通知履歴テーブル (notification_history)
+
+| カラム名 | データ型 | 必須 | 説明 |
+|---------|---------|------|------|
+| id | TEXT | ○ | 主キー（UUID） |
+| recipient_id | TEXT | ○ | 受信者のLarkユーザーID |
+| notification_type | TEXT | ○ | 通知種類（expiration_warning/expiration_alert/approval/rejection） |
+| document_type | TEXT |  | 書類種類（license/vehicle/insurance） |
+| document_id | TEXT |  | 書類ID |
+| title | TEXT | ○ | 通知タイトル |
+| message | TEXT | ○ | 通知本文 |
+| sent_at | DATETIME | ○ | 送信日時 |
+| status | TEXT | ○ | 送信ステータス（sent/failed） |
+| created_at | DATETIME | ○ | 作成日時 |
+
+**インデックス:**
+- recipient_id
+- notification_type
+- sent_at
+- status
+
+**通知種類:**
+- `expiration_warning`: 有効期限1週間前警告
+- `expiration_alert`: 有効期限切れアラート
+- `approval`: 承認通知
+- `rejection`: 却下通知
+
+---
+
 ## 統合ビュー (管理者画面用)
 
 ### application_overview_view
