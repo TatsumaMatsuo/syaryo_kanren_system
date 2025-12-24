@@ -48,6 +48,31 @@ export async function getCurrentUser() {
 }
 
 /**
+ * 認証のみチェック（権限は問わない）
+ */
+export async function requireAuth() {
+  const session = await getServerSession();
+
+  if (!session || !session.user) {
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      ),
+    };
+  }
+
+  const userId = (session.user as any).id || session.user.email || null;
+
+  return {
+    authorized: true,
+    userId,
+    user: session.user,
+  };
+}
+
+/**
  * 管理者権限をチェック
  */
 export async function requireAdmin() {

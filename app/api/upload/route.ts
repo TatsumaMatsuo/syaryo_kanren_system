@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { larkClient } from "@/lib/lark-client";
+import { requireAuth } from "@/lib/auth-utils";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -7,9 +8,17 @@ import os from "os";
 /**
  * ファイルアップロードAPI
  * POST /api/upload
+ * 認証済みユーザーのみアップロード可能
  */
 export async function POST(request: NextRequest) {
   try {
+    // 認証チェック
+    const authCheck = await requireAuth();
+    if (!authCheck.authorized) {
+      console.warn("[Upload API] Unauthorized upload attempt");
+      return authCheck.response;
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -62,12 +71,15 @@ export async function POST(request: NextRequest) {
       fs.unlinkSync(tempFilePath);
 
       if (!response.success) {
-        console.error("Lark file upload failed:", response);
+        console.error(`[Upload API] Lark upload failed - user: ${authCheck.userId}`, response);
         return NextResponse.json(
           { success: false, error: "ファイルのアップロードに失敗しました" },
           { status: 500 }
         );
       }
+
+      // アップロード成功ログ
+      console.log(`[Upload API] Success - user: ${authCheck.userId}, file: ${file.name}, key: ${response.data?.file_key}`);
 
       return NextResponse.json({
         success: true,
