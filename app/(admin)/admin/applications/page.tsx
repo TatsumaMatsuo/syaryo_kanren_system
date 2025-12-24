@@ -153,10 +153,10 @@ export default function AdminApplicationsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       {/* ページヘッダー */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">申請一覧</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">申請一覧</h1>
         <p className="mt-1 text-sm text-gray-600">
           マイカー通勤申請の承認・却下を行います
         </p>
@@ -164,7 +164,7 @@ export default function AdminApplicationsPage() {
 
       {/* フィルター */}
       <div className="mb-6">
-        <div className="flex space-x-4">
+        <div className="flex flex-wrap gap-2 sm:gap-4">
           <button
             onClick={() => setFilter("pending")}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -218,9 +218,9 @@ export default function AdminApplicationsPage() {
         ) : (
           <div className="space-y-4">
             {applications.map((app) => (
-              <div key={app.employee.employee_id} className="bg-white rounded-lg shadow p-6">
+              <div key={app.employee.employee_id} className="bg-white rounded-lg shadow p-4 sm:p-6">
                 {/* 社員情報 */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       {app.employee.employee_name}
@@ -229,23 +229,23 @@ export default function AdminApplicationsPage() {
                       社員ID: {app.employee.employee_id} | {app.employee.department}
                     </p>
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => router.push(`/admin/applications/${app.employee.employee_id}`)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm"
                     >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      詳細を表示
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      詳細
                     </button>
                     <button
                       onClick={() => handleApprove(app)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
                     >
                       承認
                     </button>
                     <button
                       onClick={() => handleReject(app)}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
                     >
                       却下
                     </button>

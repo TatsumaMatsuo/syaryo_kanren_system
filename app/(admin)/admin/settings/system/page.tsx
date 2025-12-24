@@ -108,11 +108,11 @@ export default function SystemSettingsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       {/* ページヘッダー */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">システム設定</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">システム設定</h1>
           <p className="mt-1 text-sm text-gray-600">
             有効期限通知と管理者通知の設定を管理します
           </p>
@@ -121,7 +121,7 @@ export default function SystemSettingsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
           >
             <Save className="w-5 h-5 mr-2" />
             {saving ? "保存中..." : "設定を保存"}
@@ -154,9 +154,9 @@ export default function SystemSettingsPage() {
           <div className="space-y-6">
             {/* 運転免許証 */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center space-x-3">
-                  <FileText className="w-5 h-5 text-blue-600" />
+                  <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
                   <div>
                     <h3 className="font-medium text-gray-900">運転免許証</h3>
                     <p className="text-sm text-gray-500">
@@ -164,7 +164,7 @@ export default function SystemSettingsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 ml-8 sm:ml-0">
                   <input
                     type="number"
                     min="1"
@@ -177,7 +177,7 @@ export default function SystemSettingsPage() {
                       )
                     }
                     disabled={!isAdmin}
-                    className="w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
+                    className="w-20 sm:w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
                   />
                   <span className="text-gray-700">日前</span>
                 </div>
@@ -186,9 +186,9 @@ export default function SystemSettingsPage() {
 
             {/* 車検証 */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center space-x-3">
-                  <Car className="w-5 h-5 text-green-600" />
+                  <Car className="w-5 h-5 text-green-600 flex-shrink-0" />
                   <div>
                     <h3 className="font-medium text-gray-900">車検証</h3>
                     <p className="text-sm text-gray-500">
@@ -196,7 +196,7 @@ export default function SystemSettingsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 ml-8 sm:ml-0">
                   <input
                     type="number"
                     min="1"
@@ -209,7 +209,7 @@ export default function SystemSettingsPage() {
                       )
                     }
                     disabled={!isAdmin}
-                    className="w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
+                    className="w-20 sm:w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
                   />
                   <span className="text-gray-700">日前</span>
                 </div>
@@ -218,9 +218,9 @@ export default function SystemSettingsPage() {
 
             {/* 任意保険証 */}
             <div className="border rounded-lg p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center space-x-3">
-                  <Shield className="w-5 h-5 text-purple-600" />
+                  <Shield className="w-5 h-5 text-purple-600 flex-shrink-0" />
                   <div>
                     <h3 className="font-medium text-gray-900">任意保険証</h3>
                     <p className="text-sm text-gray-500">
@@ -228,7 +228,7 @@ export default function SystemSettingsPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 ml-8 sm:ml-0">
                   <input
                     type="number"
                     min="1"
@@ -241,7 +241,7 @@ export default function SystemSettingsPage() {
                       )
                     }
                     disabled={!isAdmin}
-                    className="w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
+                    className="w-20 sm:w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
                   />
                   <span className="text-gray-700">日前</span>
                 </div>
@@ -264,7 +264,7 @@ export default function SystemSettingsPage() {
           </p>
 
           <div className="border rounded-lg p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <h3 className="font-medium text-gray-900">
                   管理者エスカレーション通知
@@ -274,7 +274,7 @@ export default function SystemSettingsPage() {
                 </p>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-gray-700">期限切れ後</span>
+                <span className="text-gray-700 text-sm">期限切れ後</span>
                 <input
                   type="number"
                   min="0"
@@ -287,9 +287,9 @@ export default function SystemSettingsPage() {
                     )
                   }
                   disabled={!isAdmin}
-                  className="w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
+                  className="w-20 sm:w-24 border rounded-lg px-3 py-2 text-right disabled:bg-gray-100"
                 />
-                <span className="text-gray-700">日後</span>
+                <span className="text-gray-700 text-sm">日後</span>
               </div>
             </div>
           </div>

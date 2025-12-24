@@ -10,6 +10,13 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // TODO: 実際の申請状況を取得
+  const [applications] = useState({
+    license: { status: "pending", submitted: true },
+    vehicle: { status: "approved", submitted: true },
+    insurance: { status: "pending", submitted: false },
+  });
+
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -38,13 +45,6 @@ export default function Dashboard() {
     name: session.user.name || "ゲスト",
     employee_id: (session.user as any).id || session.user.email || "N/A",
   };
-
-  // TODO: 実際の申請状況を取得
-  const [applications] = useState({
-    license: { status: "pending", submitted: true },
-    vehicle: { status: "approved", submitted: true },
-    insurance: { status: "pending", submitted: false },
-  });
 
   const getStatusBadge = (status: string, submitted: boolean) => {
     if (!submitted) {

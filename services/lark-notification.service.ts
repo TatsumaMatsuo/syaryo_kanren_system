@@ -6,16 +6,64 @@ export interface NotificationTemplate {
   content: string;
 }
 
+// システムのベースURL
+const SYSTEM_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://syaryo-kanren-system.vercel.app";
+
+export interface MessageOptions {
+  showActionButton?: boolean;
+  actionUrl?: string;
+  buttonText?: string;
+}
+
 /**
  * Lark Messengerでメッセージを送信
  * @param userId LarkユーザーのOpen ID
  * @param message 送信するメッセージ
+ * @param options オプション設定
  */
 export async function sendLarkMessage(
   userId: string,
-  message: NotificationTemplate
+  message: NotificationTemplate,
+  options: MessageOptions = {}
 ): Promise<boolean> {
+  const {
+    showActionButton = true,
+    actionUrl = `${SYSTEM_BASE_URL}/dashboard`,
+    buttonText = "📋 申請メニューを開く",
+  } = options;
+
   try {
+    const elements: any[] = [
+      {
+        tag: "div",
+        text: {
+          content: message.content,
+          tag: "lark_md",
+        },
+      },
+    ];
+
+    // アクションボタンを追加
+    if (showActionButton) {
+      elements.push({
+        tag: "hr",
+      });
+      elements.push({
+        tag: "action",
+        actions: [
+          {
+            tag: "button",
+            text: {
+              content: buttonText,
+              tag: "plain_text",
+            },
+            type: "primary",
+            url: actionUrl,
+          },
+        ],
+      });
+    }
+
     // Lark Message API を使用してメッセージを送信
     const response = await larkClient.im.message.create({
       params: {
@@ -35,15 +83,7 @@ export async function sendLarkMessage(
               tag: "plain_text",
             },
           },
-          elements: [
-            {
-              tag: "div",
-              text: {
-                content: message.content,
-                tag: "lark_md",
-              },
-            },
-          ],
+          elements,
         }),
       },
     });
@@ -78,7 +118,8 @@ export function createExpirationWarningTemplate(
 **残り日数**: ${warning.daysUntilExpiration}日
 
 有効期限が近づいています。早めの更新手続きをお願いします。
-更新が完了したら、システムから再度申請を行ってください。`,
+
+📌 **更新が完了したら、下記ボタンから申請メニューにアクセスし、再度申請を行ってください。**`,
   };
 }
 
@@ -105,10 +146,10 @@ export function createExpiredNotificationTemplate(
 **有効期限**: ${expirationDateStr}
 **期限超過**: ${daysOverdue}日
 
-有効期限が切れています。至急、更新手続きを行ってください。
+⚠️ 有効期限が切れています。至急、更新手続きを行ってください。
 有効期限が切れた状態での業務は認められません。
 
-更新が完了したら、システムから再度申請を行ってください。`,
+📌 **更新が完了したら、下記ボタンから申請メニューにアクセスし、再度申請を行ってください。**`,
   };
 }
 
@@ -137,11 +178,12 @@ export function createAdminExpiredNotificationTemplate(
   return {
     title: `【管理者通知】期限切れ書類があります (${warnings.length}件)`,
     content: `以下の書類の有効期限が切れています。
-該当社員への対応をお願いします。
 
 ${warningList}
 
-各社員に更新を促し、更新完了後は再申請を依頼してください。`,
+⚠️ 本人に連絡し更新手続きを依頼し、現在の状況を確認してください。
+
+📌 **下記ボタンから管理画面にアクセスし、詳細を確認してください。**`,
   };
 }
 
@@ -149,7 +191,7 @@ ${warningList}
  * 複数ユーザーに一括通知を送信
  */
 export async function sendBulkNotifications(
-  notifications: Array<{ userId: string; message: NotificationTemplate }>
+  notifications: Array<{ userId: string; message: NotificationTemplate; options?: MessageOptions }>
 ): Promise<{ success: number; failed: number }> {
   let success = 0;
   let failed = 0;
@@ -157,7 +199,8 @@ export async function sendBulkNotifications(
   for (const notification of notifications) {
     const result = await sendLarkMessage(
       notification.userId,
-      notification.message
+      notification.message,
+      notification.options
     );
     if (result) {
       success++;
@@ -169,4 +212,17 @@ export async function sendBulkNotifications(
   }
 
   return { success, failed };
+}
+
+/**
+ * 管理者向け通知を送信
+ */
+export async function sendAdminNotification(
+  adminUserId: string,
+  message: NotificationTemplate
+): Promise<boolean> {
+  return sendLarkMessage(adminUserId, message, {
+    actionUrl: `${SYSTEM_BASE_URL}/admin/applications`,
+    buttonText: "🔧 管理画面を開く",
+  });
 }
