@@ -168,7 +168,7 @@ export default function MyDocumentsPage() {
               <ArrowLeft className="h-6 w-6" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">書類照会</h1>
+              <h1 className="text-2xl font-bold text-gray-900">承認済書類照会</h1>
               <p className="mt-1 text-sm text-gray-600">
                 {user.name}さん（社員ID: {user.employee_id}）
               </p>
