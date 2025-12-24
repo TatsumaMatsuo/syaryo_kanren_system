@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { larkClient } from "@/lib/lark-client";
 import { requireAuth } from "@/lib/auth-utils";
+import { detectFileType, isPdfMimeType } from "@/lib/file-type-detection";
 
 /**
  * GET /api/files/[fileKey]
@@ -49,13 +50,21 @@ export async function GET(
 
     const fileBuffer = response.data.file;
 
-    // Content-Typeを推測（file_keyから拡張子を取得できない場合のフォールバック）
-    // 実際のMIMEタイプは別途管理が必要な場合があります
-    const contentType = "image/jpeg"; // デフォルト
+    // マジックバイトからファイルタイプを検出
+    const detectedType = detectFileType(fileBuffer);
+    const contentType = detectedType.mimeType;
+
+    console.log(`[File API] Detected content type: ${contentType} for fileKey: ${fileKey}`);
+
+    // PDFの場合はインライン表示を許可
+    const contentDisposition = isPdfMimeType(contentType)
+      ? "inline"
+      : "inline";
 
     return new NextResponse(fileBuffer, {
       headers: {
         "Content-Type": contentType,
+        "Content-Disposition": contentDisposition,
         "Cache-Control": "private, max-age=3600",
       },
     });

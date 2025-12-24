@@ -15,12 +15,21 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCw,
+  RotateCcw,
   Download,
 } from "lucide-react";
 import { useToast, ToastContainer } from "@/components/ui/toast";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { PDFViewer } from "@/components/ui/pdf-viewer";
 
 type DocumentType = "license" | "vehicle" | "insurance";
+
+// ファイル拡張子からPDFかどうかを判定
+function isPdfFile(filename: string | undefined): boolean {
+  if (!filename) return false;
+  const ext = filename.toLowerCase().split('.').pop();
+  return ext === 'pdf';
+}
 
 export default function ApplicationDetailPage() {
   const { data: session, status } = useSession();
@@ -36,6 +45,17 @@ export default function ApplicationDetailPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<"all" | DocumentType>("all");
   const [processing, setProcessing] = useState(false);
+  const [imageRotation, setImageRotation] = useState(0);
+
+  // 画像回転
+  const rotateImage = (degrees: number) => {
+    setImageRotation((prev) => (prev + degrees + 360) % 360);
+  };
+
+  // ドキュメント切り替え時に回転をリセット
+  useEffect(() => {
+    setImageRotation(0);
+  }, [selectedDoc]);
 
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
@@ -552,79 +572,115 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
 
-        {/* 右パネル: 画像ビューア */}
+        {/* 右パネル: 画像/PDFビューア */}
         <div className="w-1/2 bg-gray-900 flex flex-col">
-          {/* 画像コントロールバー */}
-          <div className="bg-gray-800 px-4 py-3 flex items-center justify-between">
-            <h3 className="text-white font-medium">{getDocumentTitle()} - 画像</h3>
-          </div>
-
-          {/* 画像表示エリア */}
-          <div className="flex-1 relative bg-gray-900">
-            {currentDoc?.image_url ? (
-              <TransformWrapper
-                initialScale={1}
-                minScale={0.5}
-                maxScale={4}
-                centerOnInit
-              >
-                {({ zoomIn, zoomOut, resetTransform }) => (
-                  <>
-                    {/* ズームコントロール */}
-                    <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
-                      <button
-                        onClick={() => zoomIn()}
-                        className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                        title="拡大"
-                      >
-                        <ZoomIn className="h-5 w-5 text-gray-700" />
-                      </button>
-                      <button
-                        onClick={() => zoomOut()}
-                        className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                        title="縮小"
-                      >
-                        <ZoomOut className="h-5 w-5 text-gray-700" />
-                      </button>
-                      <button
-                        onClick={() => resetTransform()}
-                        className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                        title="リセット"
-                      >
-                        <RotateCw className="h-5 w-5 text-gray-700" />
-                      </button>
-                      <a
-                        href={`/api/files/${currentDoc.image_url}`}
-                        download
-                        className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                        title="ダウンロード"
-                      >
-                        <Download className="h-5 w-5 text-gray-700" />
-                      </a>
-                    </div>
-
-                    <TransformComponent
-                      wrapperClass="w-full h-full"
-                      contentClass="w-full h-full flex items-center justify-center"
-                    >
-                      <img
-                        src={`/api/files/${currentDoc.image_url}`}
-                        alt={getDocumentTitle()}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </TransformComponent>
-                  </>
-                )}
-              </TransformWrapper>
+          {currentDoc?.image_url ? (
+            // PDFの場合はPDFビューアを表示
+            isPdfFile(currentDoc.image_url) ? (
+              <PDFViewer
+                fileUrl={`/api/files/${currentDoc.image_url}`}
+                title={getDocumentTitle()}
+              />
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">画像がアップロードされていません</p>
+              // 画像の場合は従来の画像ビューアを表示
+              <>
+                {/* 画像コントロールバー */}
+                <div className="bg-gray-800 px-4 py-3 flex items-center justify-between">
+                  <h3 className="text-white font-medium">{getDocumentTitle()} - 画像</h3>
+                  {/* 回転コントロール */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => rotateImage(-90)}
+                      className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                      title="左に90°回転"
+                    >
+                      <RotateCcw className="h-4 w-4 text-white" />
+                    </button>
+                    <span className="text-white text-sm min-w-[40px] text-center">
+                      {imageRotation}°
+                    </span>
+                    <button
+                      onClick={() => rotateImage(90)}
+                      className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
+                      title="右に90°回転"
+                    >
+                      <RotateCw className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* 画像表示エリア */}
+                <div className="flex-1 relative bg-gray-900">
+                  <TransformWrapper
+                    initialScale={1}
+                    minScale={0.5}
+                    maxScale={4}
+                    centerOnInit
+                    key={imageRotation} // 回転時にリセット
+                  >
+                    {({ zoomIn, zoomOut, resetTransform }) => (
+                      <>
+                        {/* ズームコントロール */}
+                        <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
+                          <button
+                            onClick={() => zoomIn()}
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="拡大"
+                          >
+                            <ZoomIn className="h-5 w-5 text-gray-700" />
+                          </button>
+                          <button
+                            onClick={() => zoomOut()}
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="縮小"
+                          >
+                            <ZoomOut className="h-5 w-5 text-gray-700" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              resetTransform();
+                              setImageRotation(0);
+                            }}
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="リセット"
+                          >
+                            <RotateCw className="h-5 w-5 text-gray-700" />
+                          </button>
+                          <a
+                            href={`/api/files/${currentDoc.image_url}`}
+                            download
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="ダウンロード"
+                          >
+                            <Download className="h-5 w-5 text-gray-700" />
+                          </a>
+                        </div>
+
+                        <TransformComponent
+                          wrapperClass="w-full h-full"
+                          contentClass="w-full h-full flex items-center justify-center"
+                        >
+                          <img
+                            src={`/api/files/${currentDoc.image_url}`}
+                            alt={getDocumentTitle()}
+                            className="max-w-full max-h-full object-contain transition-transform duration-300"
+                            style={{ transform: `rotate(${imageRotation}deg)` }}
+                          />
+                        </TransformComponent>
+                      </>
+                    )}
+                  </TransformWrapper>
+                </div>
+              </>
+            )
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-400">ファイルがアップロードされていません</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
