@@ -12,8 +12,9 @@ import {
   getInsurancePolicies,
 } from "@/services/insurance-policy.service";
 import { requireAdmin, getCurrentUser } from "@/lib/auth-utils";
-import { createApprovalHistory, getBaseRecords } from "@/lib/lark-client";
+import { getBaseRecords } from "@/lib/lark-client";
 import { LARK_TABLES } from "@/lib/lark-tables";
+import { recordApprovalHistory } from "@/services/approval-history.service";
 
 /**
  * POST /api/approvals/:id/reject
@@ -79,10 +80,6 @@ export async function POST(
 
     // 却下履歴を記録
     if (applicationRecord && currentUser) {
-      console.log('DEBUG reject - applicationRecord:', applicationRecord);
-      console.log('DEBUG reject - currentUser:', currentUser);
-      console.log('DEBUG reject - reason:', reason);
-
       // 従業員マスタから従業員名を取得
       let employeeName = "不明";
       if (applicationRecord.employee_id) {
@@ -99,7 +96,7 @@ export async function POST(
         }
       }
 
-      await createApprovalHistory({
+      await recordApprovalHistory({
         application_type: type as "license" | "vehicle" | "insurance",
         application_id: id,
         employee_id: applicationRecord.employee_id || "",
@@ -108,11 +105,7 @@ export async function POST(
         approver_id: currentUser.id || currentUser.email || "",
         approver_name: currentUser.name || currentUser.email || "不明",
         reason,
-      });
-    } else {
-      console.log('DEBUG reject - Missing data for history:', {
-        hasApplicationRecord: !!applicationRecord,
-        hasCurrentUser: !!currentUser,
+        timestamp: Date.now(),
       });
     }
 

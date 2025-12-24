@@ -26,6 +26,9 @@ export const LARK_TABLES = {
 
   // システム設定テーブル
   SYSTEM_SETTINGS: process.env.LARK_TABLE_SYSTEM_SETTINGS || "",
+
+  // 承認履歴テーブル
+  APPROVAL_HISTORY: process.env.LARK_APPROVAL_HISTORY_TABLE_ID || "",
 } as const;
 
 /**
@@ -131,4 +134,18 @@ export const SYSTEM_SETTINGS_FIELDS = {
   setting_value: "setting_value",
   updated_at: "updated_at",
   updated_by: "updated_by",
+} as const;
+
+export const APPROVAL_HISTORY_FIELDS = {
+  id: "id",
+  application_type: "application_type",
+  application_id: "application_id",
+  employee_id: "employee_id",
+  employee_name: "employee_name",
+  action: "action",
+  approver_id: "approver_id",
+  approver_name: "approver_name",
+  reason: "reason",
+  timestamp: "timestamp",
+  created_at: "created_at",
 } as const;

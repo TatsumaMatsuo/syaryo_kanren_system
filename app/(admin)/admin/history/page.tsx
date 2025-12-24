@@ -157,10 +157,10 @@ export default function ApprovalHistoryPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       {/* ページヘッダー */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">承認履歴</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">承認履歴</h1>
         <p className="mt-1 text-sm text-gray-600">
           承認・却下の履歴を確認できます
         </p>
