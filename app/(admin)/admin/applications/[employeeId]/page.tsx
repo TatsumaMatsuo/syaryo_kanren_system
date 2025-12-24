@@ -34,6 +34,8 @@ export default function ApplicationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<DocumentType>("license");
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<"all" | DocumentType>("all");
+  const [processing, setProcessing] = useState(false);
 
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
@@ -99,32 +101,79 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  const handleApprove = async () => {
+  // 個別承認
+  const handleApproveDocument = async (docType: DocumentType) => {
     if (!application) return;
-    if (!confirm("この申請を承認しますか？")) return;
 
+    const docNames: Record<DocumentType, string> = {
+      license: "運転免許証",
+      vehicle: "車検証",
+      insurance: "任意保険証"
+    };
+
+    if (!confirm(`${docNames[docType]}を承認しますか？`)) return;
+
+    setProcessing(true);
+    try {
+      const docId = docType === "license" ? application.license.id :
+                    docType === "vehicle" ? application.vehicle.id :
+                    application.insurance.id;
+
+      const response = await fetch(`/api/approvals/${docId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: docType }),
+      });
+
+      if (response.ok) {
+        toast.success(`${docNames[docType]}を承認しました`);
+        // データを再取得して画面を更新
+        const refreshResponse = await fetch(
+          `/api/applications/overview?employeeId=${employeeId}`
+        );
+        const refreshData = await refreshResponse.json();
+        if (refreshData.success && refreshData.data?.[0]) {
+          setApplication(refreshData.data[0]);
+        }
+      } else {
+        throw new Error("Approval failed");
+      }
+    } catch (error) {
+      console.error("Failed to approve:", error);
+      toast.error("承認に失敗しました。もう一度お試しください。");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // 一括承認
+  const handleApproveAll = async () => {
+    if (!application) return;
+    if (!confirm("すべての書類を承認しますか？")) return;
+
+    setProcessing(true);
     try {
       const results = await Promise.all([
         fetch(`/api/approvals/${application.license.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "license", action: "approve" }),
+          body: JSON.stringify({ type: "license" }),
         }),
         fetch(`/api/approvals/${application.vehicle.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "vehicle", action: "approve" }),
+          body: JSON.stringify({ type: "vehicle" }),
         }),
         fetch(`/api/approvals/${application.insurance.id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "insurance", action: "approve" }),
+          body: JSON.stringify({ type: "insurance" }),
         }),
       ]);
 
       const allSuccess = results.every((r) => r.ok);
       if (allSuccess) {
-        toast.success(`${application.employee.employee_name}さんの申請を承認しました`);
+        toast.success(`${application.employee.employee_name}さんのすべての書類を承認しました`);
         router.push("/admin/applications");
       } else {
         throw new Error("Some approvals failed");
@@ -132,11 +181,39 @@ export default function ApplicationDetailPage() {
     } catch (error) {
       console.error("Failed to approve:", error);
       toast.error("承認に失敗しました。もう一度お試しください。");
+    } finally {
+      setProcessing(false);
     }
   };
 
-  const handleReject = () => {
+  // 個別却下
+  const handleRejectDocument = (docType: DocumentType) => {
+    setRejectTarget(docType);
     setShowRejectModal(true);
+  };
+
+  // 一括却下
+  const handleRejectAll = () => {
+    setRejectTarget("all");
+    setShowRejectModal(true);
+  };
+
+  // 承認状態のサマリーを取得
+  const getApprovalSummary = () => {
+    if (!application) return { approved: 0, rejected: 0, pending: 0, total: 3 };
+
+    const statuses = [
+      application.license.approval_status,
+      application.vehicle.approval_status,
+      application.insurance.approval_status
+    ];
+
+    return {
+      approved: statuses.filter(s => s === "approved").length,
+      rejected: statuses.filter(s => s === "rejected").length,
+      pending: statuses.filter(s => s === "pending").length,
+      total: 3
+    };
   };
 
   const getCurrentDocument = () => {
@@ -232,19 +309,59 @@ export default function ApplicationDetailPage() {
                 </p>
               </div>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={handleApprove}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                承認
-              </button>
-              <button
-                onClick={handleReject}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-              >
-                却下
-              </button>
+            <div className="flex items-center space-x-4">
+              {/* 承認サマリー */}
+              <div className="text-sm text-gray-600">
+                {(() => {
+                  const summary = getApprovalSummary();
+                  if (summary.approved === summary.total) {
+                    return (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800">
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        全て承認済み
+                      </span>
+                    );
+                  } else if (summary.rejected > 0) {
+                    return (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-800">
+                        <XCircle className="w-4 h-4 mr-1" />
+                        {summary.rejected}件却下
+                      </span>
+                    );
+                  } else if (summary.approved > 0) {
+                    return (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                        <Clock className="w-4 h-4 mr-1" />
+                        部分承認 ({summary.approved}/{summary.total}件)
+                      </span>
+                    );
+                  } else {
+                    return (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-800">
+                        <Clock className="w-4 h-4 mr-1" />
+                        審査中 ({summary.pending}件)
+                      </span>
+                    );
+                  }
+                })()}
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleApproveAll}
+                  disabled={processing || getApprovalSummary().pending === 0}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  すべて承認
+                </button>
+                <button
+                  onClick={handleRejectAll}
+                  disabled={processing || getApprovalSummary().pending === 0}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  すべて却下
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -387,20 +504,49 @@ export default function ApplicationDetailPage() {
 
               {/* 操作ボタン */}
               <div className="pt-4 border-t space-y-2">
-                <button
-                  onClick={handleApprove}
-                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  <CheckCircle className="inline h-5 w-5 mr-2" />
-                  この書類を承認
-                </button>
-                <button
-                  onClick={handleReject}
-                  className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-                >
-                  <XCircle className="inline h-5 w-5 mr-2" />
-                  この書類を却下
-                </button>
+                {(() => {
+                  const currentStatus = selectedDoc === "license" ? application.license.approval_status :
+                                        selectedDoc === "vehicle" ? application.vehicle.approval_status :
+                                        application.insurance.approval_status;
+
+                  if (currentStatus === "approved") {
+                    return (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                        <CheckCircle className="inline h-6 w-6 text-green-600 mb-2" />
+                        <p className="text-green-800 font-medium">この書類は承認済みです</p>
+                      </div>
+                    );
+                  } else if (currentStatus === "rejected") {
+                    return (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                        <XCircle className="inline h-6 w-6 text-red-600 mb-2" />
+                        <p className="text-red-800 font-medium">この書類は却下済みです</p>
+                        <p className="text-red-600 text-sm mt-1">申請者に再申請を依頼してください</p>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <>
+                        <button
+                          onClick={() => handleApproveDocument(selectedDoc)}
+                          disabled={processing}
+                          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <CheckCircle className="inline h-5 w-5 mr-2" />
+                          {processing ? "処理中..." : `${getDocumentTitle()}を承認`}
+                        </button>
+                        <button
+                          onClick={() => handleRejectDocument(selectedDoc)}
+                          disabled={processing}
+                          className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <XCircle className="inline h-5 w-5 mr-2" />
+                          {processing ? "処理中..." : `${getDocumentTitle()}を却下`}
+                        </button>
+                      </>
+                    );
+                  }
+                })()}
               </div>
             </div>
           </div>
@@ -486,10 +632,28 @@ export default function ApplicationDetailPage() {
       {showRejectModal && (
         <RejectModal
           application={application}
+          target={rejectTarget}
           onClose={() => setShowRejectModal(false)}
-          onReject={() => {
-            toast.success(`${application.employee.employee_name}さんの申請を却下しました`);
-            router.push("/admin/applications");
+          onReject={async () => {
+            if (rejectTarget === "all") {
+              toast.success(`${application.employee.employee_name}さんのすべての書類を却下しました`);
+              router.push("/admin/applications");
+            } else {
+              const docNames: Record<DocumentType, string> = {
+                license: "運転免許証",
+                vehicle: "車検証",
+                insurance: "任意保険証"
+              };
+              toast.success(`${docNames[rejectTarget]}を却下しました`);
+              // データを再取得して画面を更新
+              const refreshResponse = await fetch(
+                `/api/applications/overview?employeeId=${employeeId}`
+              );
+              const refreshData = await refreshResponse.json();
+              if (refreshData.success && refreshData.data?.[0]) {
+                setApplication(refreshData.data[0]);
+              }
+            }
           }}
         />
       )}
@@ -502,16 +666,29 @@ export default function ApplicationDetailPage() {
 
 function RejectModal({
   application,
+  target,
   onClose,
   onReject,
 }: {
   application: ApplicationOverview;
+  target: "all" | DocumentType;
   onClose: () => void;
   onReject: () => void;
 }) {
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const docNames: Record<DocumentType, string> = {
+    license: "運転免許証",
+    vehicle: "車検証",
+    insurance: "任意保険証"
+  };
+
+  const getTargetLabel = () => {
+    if (target === "all") return "すべての書類";
+    return docNames[target];
+  };
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
@@ -522,30 +699,49 @@ function RejectModal({
     setLoading(true);
     setError(null);
     try {
-      const results = await Promise.all([
-        fetch(`/api/approvals/${application.license.id}/reject`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "license", reason }),
-        }),
-        fetch(`/api/approvals/${application.vehicle.id}/reject`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "vehicle", reason }),
-        }),
-        fetch(`/api/approvals/${application.insurance.id}/reject`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "insurance", reason }),
-        }),
-      ]);
+      if (target === "all") {
+        // 一括却下
+        const results = await Promise.all([
+          fetch(`/api/approvals/${application.license.id}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "license", reason }),
+          }),
+          fetch(`/api/approvals/${application.vehicle.id}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "vehicle", reason }),
+          }),
+          fetch(`/api/approvals/${application.insurance.id}/reject`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "insurance", reason }),
+          }),
+        ]);
 
-      const allSuccess = results.every((r) => r.ok);
-      if (allSuccess) {
-        onReject();
+        const allSuccess = results.every((r) => r.ok);
+        if (!allSuccess) {
+          throw new Error("Some rejections failed");
+        }
       } else {
-        throw new Error("Some rejections failed");
+        // 個別却下
+        const docId = target === "license" ? application.license.id :
+                      target === "vehicle" ? application.vehicle.id :
+                      application.insurance.id;
+
+        const response = await fetch(`/api/approvals/${docId}/reject`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: target, reason }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Rejection failed");
+        }
       }
+
+      onClose();
+      onReject();
     } catch (err) {
       console.error("Failed to reject:", err);
       setError("却下に失敗しました。もう一度お試しください。");
@@ -557,9 +753,11 @@ function RejectModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">申請を却下</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">
+          {getTargetLabel()}を却下
+        </h2>
         <p className="text-sm text-gray-600 mb-4">
-          {application.employee.employee_name}さんの申請を却下します。却下理由を入力してください。
+          {application.employee.employee_name}さんの{getTargetLabel()}を却下します。却下理由を入力してください。
         </p>
         {error && (
           <div className="mb-4 bg-red-50 border-l-4 border-red-400 p-3 rounded">
