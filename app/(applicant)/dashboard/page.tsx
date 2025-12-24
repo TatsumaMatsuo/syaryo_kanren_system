@@ -4,18 +4,64 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Car, Shield, CheckCircle, Clock, XCircle } from "lucide-react";
+import { FileText, Car, Shield, CheckCircle, Clock, XCircle, Search } from "lucide-react";
+
+interface DocumentStatus {
+  status: string;
+  submitted: boolean;
+}
+
+interface ApplicationsState {
+  license: DocumentStatus;
+  vehicle: DocumentStatus;
+  insurance: DocumentStatus;
+}
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  // TODO: 実際の申請状況を取得
-  const [applications] = useState({
-    license: { status: "pending", submitted: true },
-    vehicle: { status: "approved", submitted: true },
+  const [applications, setApplications] = useState<ApplicationsState>({
+    license: { status: "pending", submitted: false },
+    vehicle: { status: "pending", submitted: false },
     insurance: { status: "pending", submitted: false },
   });
+  const [loading, setLoading] = useState(true);
+
+  // 書類データを取得
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const response = await fetch("/api/my-documents");
+        const data = await response.json();
+
+        if (data.success && data.data) {
+          setApplications({
+            license: {
+              status: data.data.license?.approval_status || "pending",
+              submitted: !!data.data.license,
+            },
+            vehicle: {
+              status: data.data.vehicle?.approval_status || "pending",
+              submitted: !!data.data.vehicle,
+            },
+            insurance: {
+              status: data.data.insurance?.approval_status || "pending",
+              submitted: !!data.data.insurance,
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch documents:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (status === "authenticated") {
+      fetchDocuments();
+    }
+  }, [status]);
 
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
@@ -25,7 +71,7 @@ export default function Dashboard() {
   }, [status, router]);
 
   // ローディング中
-  if (status === "loading") {
+  if (status === "loading" || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -90,13 +136,20 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 マイカー通勤申請ダッシュボード
               </h1>
               <p className="mt-1 text-sm text-gray-600">
                 {user.name}さん（社員ID: {user.employee_id}）
               </p>
             </div>
+            <Link
+              href="/dashboard/documents"
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Search className="w-4 h-4 mr-2" />
+              書類照会
+            </Link>
           </div>
         </div>
       </header>
