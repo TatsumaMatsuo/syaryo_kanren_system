@@ -13,8 +13,8 @@ import {
   XCircle,
   ArrowLeft,
   Eye,
-  Calendar,
   AlertTriangle,
+  Plus,
 } from "lucide-react";
 
 interface DocumentData {
@@ -37,9 +37,14 @@ interface DocumentData {
 
 interface MyDocuments {
   license: DocumentData | null;
-  vehicle: DocumentData | null;
-  insurance: DocumentData | null;
+  vehicles: DocumentData[];
+  insurances: DocumentData[];
 }
+
+type SelectedDoc = {
+  type: "license" | "vehicle" | "insurance";
+  index: number;
+};
 
 export default function MyDocumentsPage() {
   const { data: session, status } = useSession();
@@ -48,7 +53,7 @@ export default function MyDocumentsPage() {
   const [documents, setDocuments] = useState<MyDocuments | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<"license" | "vehicle" | "insurance" | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<SelectedDoc | null>(null);
 
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
@@ -85,8 +90,8 @@ export default function MyDocumentsPage() {
   const getStatusBadge = (status: string | undefined) => {
     if (!status) {
       return (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
-          <Clock className="w-4 h-4 mr-1" />
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <Clock className="w-3 h-3 mr-1" />
           未申請
         </span>
       );
@@ -95,22 +100,22 @@ export default function MyDocumentsPage() {
     switch (status) {
       case "approved":
         return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-            <CheckCircle className="w-4 h-4 mr-1" />
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <CheckCircle className="w-3 h-3 mr-1" />
             承認済み
           </span>
         );
       case "pending":
         return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-            <Clock className="w-4 h-4 mr-1" />
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <Clock className="w-3 h-3 mr-1" />
             審査中
           </span>
         );
       case "rejected":
         return (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-            <XCircle className="w-4 h-4 mr-1" />
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <XCircle className="w-3 h-3 mr-1" />
             却下
           </span>
         );
@@ -131,6 +136,24 @@ export default function MyDocumentsPage() {
     if (!dateStr) return false;
     const date = new Date(dateStr);
     return date < new Date();
+  };
+
+  // ファイルがPDFかどうかを判定
+  const isPdfFile = (url: string | undefined) => {
+    if (!url) return false;
+    return url.toLowerCase().endsWith('.pdf');
+  };
+
+  const getSelectedDocument = (): DocumentData | null => {
+    if (!selectedDoc || !documents) return null;
+
+    if (selectedDoc.type === "license") {
+      return documents.license;
+    } else if (selectedDoc.type === "vehicle") {
+      return documents.vehicles[selectedDoc.index] || null;
+    } else {
+      return documents.insurances[selectedDoc.index] || null;
+    }
   };
 
   // ローディング中
@@ -154,6 +177,8 @@ export default function MyDocumentsPage() {
     name: session.user.name || "ゲスト",
     employee_id: (session.user as any).id || session.user.email || "N/A",
   };
+
+  const currentDoc = getSelectedDocument();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -188,187 +213,188 @@ export default function MyDocumentsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* 書類カード一覧 */}
           <div className="space-y-4">
-            {/* 免許証 */}
-            <div
-              onClick={() => setSelectedDoc("license")}
-              className={`bg-white rounded-lg shadow p-6 cursor-pointer transition-all ${
-                selectedDoc === "license" ? "ring-2 ring-blue-500" : "hover:shadow-lg"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <FileText className="h-10 w-10 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">運転免許証</h3>
+            {/* 免許証（1:1） */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="bg-blue-600 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-5 w-5 text-white" />
+                  <h3 className="text-white font-medium">運転免許証</h3>
                 </div>
-                {getStatusBadge(documents?.license?.approval_status)}
+                <span className="text-blue-200 text-xs">1件まで</span>
               </div>
               {documents?.license ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">免許証番号:</span>
+                <div
+                  onClick={() => setSelectedDoc({ type: "license", index: 0 })}
+                  className={`p-4 cursor-pointer transition-all ${
+                    selectedDoc?.type === "license" ? "bg-blue-50 ring-2 ring-blue-500 ring-inset" : "hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
                     <span className="font-medium">{documents.license.license_number}</span>
+                    {getStatusBadge(documents.license.approval_status)}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">有効期限:</span>
-                    <span className={`font-medium ${
-                      isExpired(documents.license.expiration_date) ? "text-red-600" :
-                      isExpiringSoon(documents.license.expiration_date) ? "text-yellow-600" : ""
-                    }`}>
-                      {documents.license.expiration_date
-                        ? new Date(documents.license.expiration_date).toLocaleDateString()
-                        : "-"}
-                      {isExpired(documents.license.expiration_date) && (
-                        <AlertTriangle className="inline w-4 h-4 ml-1 text-red-600" />
-                      )}
-                      {isExpiringSoon(documents.license.expiration_date) && (
-                        <AlertTriangle className="inline w-4 h-4 ml-1 text-yellow-600" />
-                      )}
-                    </span>
+                  <div className="text-sm text-gray-600 flex items-center">
+                    有効期限: {documents.license.expiration_date
+                      ? new Date(documents.license.expiration_date).toLocaleDateString()
+                      : "-"}
+                    {isExpired(documents.license.expiration_date) && (
+                      <AlertTriangle className="w-4 h-4 ml-1 text-red-600" />
+                    )}
+                    {isExpiringSoon(documents.license.expiration_date) && (
+                      <AlertTriangle className="w-4 h-4 ml-1 text-yellow-600" />
+                    )}
                   </div>
-                  {documents.license.approval_status === "rejected" && documents.license.rejection_reason && (
-                    <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs">
-                      却下理由: {documents.license.rejection_reason}
-                    </div>
-                  )}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">まだ申請されていません</p>
+                <div className="p-4 text-center text-gray-500">
+                  <p className="text-sm">未申請</p>
+                  <Link
+                    href="/dashboard/license/new"
+                    className="inline-flex items-center mt-2 text-blue-600 text-sm hover:underline"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    申請する
+                  </Link>
+                </div>
               )}
-              <div className="mt-4 flex justify-end">
-                <button className="text-blue-600 text-sm font-medium flex items-center">
-                  <Eye className="w-4 h-4 mr-1" />
-                  詳細を見る
-                </button>
+            </div>
+
+            {/* 車検証（1:多） */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="bg-green-600 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Car className="h-5 w-5 text-white" />
+                  <h3 className="text-white font-medium">車検証</h3>
+                </div>
+                <span className="text-green-200 text-xs">複数登録可</span>
+              </div>
+              {documents?.vehicles && documents.vehicles.length > 0 ? (
+                <div className="divide-y">
+                  {documents.vehicles.map((vehicle, index) => (
+                    <div
+                      key={vehicle.id}
+                      onClick={() => setSelectedDoc({ type: "vehicle", index })}
+                      className={`p-4 cursor-pointer transition-all ${
+                        selectedDoc?.type === "vehicle" && selectedDoc?.index === index
+                          ? "bg-green-50 ring-2 ring-green-500 ring-inset"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{vehicle.vehicle_number}</span>
+                        {getStatusBadge(vehicle.approval_status)}
+                      </div>
+                      <div className="text-sm text-gray-600 flex items-center">
+                        車検期限: {vehicle.inspection_expiration_date
+                          ? new Date(vehicle.inspection_expiration_date).toLocaleDateString()
+                          : "-"}
+                        {isExpired(vehicle.inspection_expiration_date) && (
+                          <AlertTriangle className="w-4 h-4 ml-1 text-red-600" />
+                        )}
+                        {isExpiringSoon(vehicle.inspection_expiration_date) && (
+                          <AlertTriangle className="w-4 h-4 ml-1 text-yellow-600" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-gray-500">
+                  <p className="text-sm">未申請</p>
+                </div>
+              )}
+              <div className="px-4 py-3 bg-gray-50 border-t">
+                <Link
+                  href="/dashboard/vehicle/new"
+                  className="inline-flex items-center text-green-600 text-sm hover:underline"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  車両を追加
+                </Link>
               </div>
             </div>
 
-            {/* 車検証 */}
-            <div
-              onClick={() => setSelectedDoc("vehicle")}
-              className={`bg-white rounded-lg shadow p-6 cursor-pointer transition-all ${
-                selectedDoc === "vehicle" ? "ring-2 ring-green-500" : "hover:shadow-lg"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <Car className="h-10 w-10 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">車検証</h3>
+            {/* 任意保険証（1:多） */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <div className="bg-purple-600 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Shield className="h-5 w-5 text-white" />
+                  <h3 className="text-white font-medium">任意保険証</h3>
                 </div>
-                {getStatusBadge(documents?.vehicle?.approval_status)}
+                <span className="text-purple-200 text-xs">複数登録可</span>
               </div>
-              {documents?.vehicle ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">車両番号:</span>
-                    <span className="font-medium">{documents.vehicle.vehicle_number}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">車検期限:</span>
-                    <span className={`font-medium ${
-                      isExpired(documents.vehicle.inspection_expiration_date) ? "text-red-600" :
-                      isExpiringSoon(documents.vehicle.inspection_expiration_date) ? "text-yellow-600" : ""
-                    }`}>
-                      {documents.vehicle.inspection_expiration_date
-                        ? new Date(documents.vehicle.inspection_expiration_date).toLocaleDateString()
-                        : "-"}
-                      {isExpired(documents.vehicle.inspection_expiration_date) && (
-                        <AlertTriangle className="inline w-4 h-4 ml-1 text-red-600" />
-                      )}
-                      {isExpiringSoon(documents.vehicle.inspection_expiration_date) && (
-                        <AlertTriangle className="inline w-4 h-4 ml-1 text-yellow-600" />
-                      )}
-                    </span>
-                  </div>
-                  {documents.vehicle.approval_status === "rejected" && documents.vehicle.rejection_reason && (
-                    <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs">
-                      却下理由: {documents.vehicle.rejection_reason}
+              {documents?.insurances && documents.insurances.length > 0 ? (
+                <div className="divide-y">
+                  {documents.insurances.map((insurance, index) => (
+                    <div
+                      key={insurance.id}
+                      onClick={() => setSelectedDoc({ type: "insurance", index })}
+                      className={`p-4 cursor-pointer transition-all ${
+                        selectedDoc?.type === "insurance" && selectedDoc?.index === index
+                          ? "bg-purple-50 ring-2 ring-purple-500 ring-inset"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{insurance.policy_number}</span>
+                        {getStatusBadge(insurance.approval_status)}
+                      </div>
+                      <div className="text-sm text-gray-600 flex items-center">
+                        保険期限: {insurance.coverage_end_date
+                          ? new Date(insurance.coverage_end_date).toLocaleDateString()
+                          : "-"}
+                        {isExpired(insurance.coverage_end_date) && (
+                          <AlertTriangle className="w-4 h-4 ml-1 text-red-600" />
+                        )}
+                        {isExpiringSoon(insurance.coverage_end_date) && (
+                          <AlertTriangle className="w-4 h-4 ml-1 text-yellow-600" />
+                        )}
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">まだ申請されていません</p>
-              )}
-              <div className="mt-4 flex justify-end">
-                <button className="text-green-600 text-sm font-medium flex items-center">
-                  <Eye className="w-4 h-4 mr-1" />
-                  詳細を見る
-                </button>
-              </div>
-            </div>
-
-            {/* 任意保険証 */}
-            <div
-              onClick={() => setSelectedDoc("insurance")}
-              className={`bg-white rounded-lg shadow p-6 cursor-pointer transition-all ${
-                selectedDoc === "insurance" ? "ring-2 ring-purple-500" : "hover:shadow-lg"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <Shield className="h-10 w-10 text-purple-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">任意保険証</h3>
+                <div className="p-4 text-center text-gray-500">
+                  <p className="text-sm">未申請</p>
                 </div>
-                {getStatusBadge(documents?.insurance?.approval_status)}
-              </div>
-              {documents?.insurance ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">証券番号:</span>
-                    <span className="font-medium">{documents.insurance.policy_number}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">保険期間:</span>
-                    <span className={`font-medium ${
-                      isExpired(documents.insurance.coverage_end_date) ? "text-red-600" :
-                      isExpiringSoon(documents.insurance.coverage_end_date) ? "text-yellow-600" : ""
-                    }`}>
-                      {documents.insurance.coverage_end_date
-                        ? new Date(documents.insurance.coverage_end_date).toLocaleDateString()
-                        : "-"}
-                      まで
-                      {isExpired(documents.insurance.coverage_end_date) && (
-                        <AlertTriangle className="inline w-4 h-4 ml-1 text-red-600" />
-                      )}
-                      {isExpiringSoon(documents.insurance.coverage_end_date) && (
-                        <AlertTriangle className="inline w-4 h-4 ml-1 text-yellow-600" />
-                      )}
-                    </span>
-                  </div>
-                  {documents.insurance.approval_status === "rejected" && documents.insurance.rejection_reason && (
-                    <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs">
-                      却下理由: {documents.insurance.rejection_reason}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-500">まだ申請されていません</p>
               )}
-              <div className="mt-4 flex justify-end">
-                <button className="text-purple-600 text-sm font-medium flex items-center">
-                  <Eye className="w-4 h-4 mr-1" />
-                  詳細を見る
-                </button>
+              <div className="px-4 py-3 bg-gray-50 border-t">
+                <Link
+                  href="/dashboard/insurance/new"
+                  className="inline-flex items-center text-purple-600 text-sm hover:underline"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  保険を追加
+                </Link>
               </div>
             </div>
           </div>
 
           {/* 画像プレビュー */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-hidden sticky top-8">
             <div className="bg-gray-800 px-4 py-3">
               <h3 className="text-white font-medium">
-                {selectedDoc === "license" && "運転免許証"}
-                {selectedDoc === "vehicle" && "車検証"}
-                {selectedDoc === "insurance" && "任意保険証"}
+                {selectedDoc?.type === "license" && "運転免許証"}
+                {selectedDoc?.type === "vehicle" && `車検証 #${(selectedDoc?.index || 0) + 1}`}
+                {selectedDoc?.type === "insurance" && `任意保険証 #${(selectedDoc?.index || 0) + 1}`}
                 {!selectedDoc && "書類プレビュー"}
               </h3>
             </div>
             <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
-              {selectedDoc && documents?.[selectedDoc]?.image_url ? (
-                <img
-                  src={`/api/files/${documents[selectedDoc]?.image_url}`}
-                  alt="書類画像"
-                  className="max-w-full max-h-full object-contain"
-                />
+              {currentDoc?.image_url ? (
+                isPdfFile(currentDoc.image_url) ? (
+                  <iframe
+                    src={`/api/files/${currentDoc.image_url}`}
+                    className="w-full h-full"
+                    title="書類PDF"
+                  />
+                ) : (
+                  <img
+                    src={`/api/files/${currentDoc.image_url}`}
+                    alt="書類画像"
+                    className="max-w-full max-h-full object-contain"
+                  />
+                )
               ) : (
                 <div className="text-center text-gray-400">
                   <FileText className="h-16 w-16 mx-auto mb-2" />
@@ -380,25 +406,81 @@ export default function MyDocumentsPage() {
                 </div>
               )}
             </div>
+            {/* 選択した書類の詳細情報 */}
+            {currentDoc && (
+              <div className="p-4 border-t">
+                <dl className="space-y-2 text-sm">
+                  {selectedDoc?.type === "license" && (
+                    <>
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">免許証番号</dt>
+                        <dd className="font-medium">{currentDoc.license_number}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">有効期限</dt>
+                        <dd className="font-medium">
+                          {currentDoc.expiration_date
+                            ? new Date(currentDoc.expiration_date).toLocaleDateString()
+                            : "-"}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                  {selectedDoc?.type === "vehicle" && (
+                    <>
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">車両番号</dt>
+                        <dd className="font-medium">{currentDoc.vehicle_number}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">車検期限</dt>
+                        <dd className="font-medium">
+                          {currentDoc.inspection_expiration_date
+                            ? new Date(currentDoc.inspection_expiration_date).toLocaleDateString()
+                            : "-"}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                  {selectedDoc?.type === "insurance" && (
+                    <>
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">証券番号</dt>
+                        <dd className="font-medium">{currentDoc.policy_number}</dd>
+                      </div>
+                      <div className="flex justify-between">
+                        <dt className="text-gray-500">保険期限</dt>
+                        <dd className="font-medium">
+                          {currentDoc.coverage_end_date
+                            ? new Date(currentDoc.coverage_end_date).toLocaleDateString()
+                            : "-"}
+                        </dd>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">承認状態</dt>
+                    <dd>{getStatusBadge(currentDoc.approval_status)}</dd>
+                  </div>
+                  {currentDoc.approval_status === "rejected" && currentDoc.rejection_reason && (
+                    <div className="mt-2 p-2 bg-red-50 rounded text-red-700 text-xs">
+                      却下理由: {currentDoc.rejection_reason}
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
           </div>
         </div>
 
         {/* 操作ボタン */}
-        <div className="mt-8 flex justify-center space-x-4">
+        <div className="mt-8 flex justify-center">
           <Link
             href="/dashboard"
             className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
           >
             ダッシュボードに戻る
           </Link>
-          {selectedDoc && !documents?.[selectedDoc] && (
-            <Link
-              href={`/dashboard/${selectedDoc}/new`}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              申請する
-            </Link>
-          )}
         </div>
       </main>
     </div>

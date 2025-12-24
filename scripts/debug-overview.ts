@@ -26,9 +26,9 @@ async function debugOverview() {
       allApplications.forEach((app, index) => {
         console.log(`${index + 1}. ${app.employee.employee_name} (${app.employee.employee_id})`);
         console.log(`   部署: ${app.employee.department}`);
-        console.log(`   運転免許証: ${app.license.approval_status}`);
-        console.log(`   車検証: ${app.vehicle.approval_status}`);
-        console.log(`   任意保険証: ${app.insurance.approval_status}`);
+        console.log(`   運転免許証: ${app.license?.approval_status || "未登録"}`);
+        console.log(`   車検証: ${app.vehicles.length}件 (${app.vehicles.map(v => v.approval_status).join(", ") || "なし"})`);
+        console.log(`   任意保険証: ${app.insurances.length}件 (${app.insurances.map(i => i.approval_status).join(", ") || "なし"})`);
         console.log("");
       });
     }

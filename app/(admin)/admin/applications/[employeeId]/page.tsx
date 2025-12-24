@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
-import { ApplicationOverview } from "@/types";
+import { ApplicationOverview, VehicleRegistration, InsurancePolicy, DriversLicense } from "@/types";
 import {
   CheckCircle,
   XCircle,
@@ -22,7 +22,13 @@ import { useToast, ToastContainer } from "@/components/ui/toast";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { PDFViewer } from "@/components/ui/pdf-viewer";
 
-type DocumentType = "license" | "vehicle" | "insurance";
+type DocumentCategory = "license" | "vehicle" | "insurance";
+
+// 選択中のドキュメント
+interface SelectedDocument {
+  category: DocumentCategory;
+  index: number; // vehicles/insurances の場合のインデックス
+}
 
 // ファイル拡張子からPDFかどうかを判定
 function isPdfFile(filename: string | undefined): boolean {
@@ -41,9 +47,9 @@ export default function ApplicationDetailPage() {
   const [application, setApplication] = useState<ApplicationOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDoc, setSelectedDoc] = useState<DocumentType>("license");
+  const [selectedDoc, setSelectedDoc] = useState<SelectedDocument>({ category: "license", index: 0 });
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectTarget, setRejectTarget] = useState<"all" | DocumentType>("all");
+  const [rejectTarget, setRejectTarget] = useState<{ category: DocumentCategory; index: number } | "all">("all");
   const [processing, setProcessing] = useState(false);
   const [imageRotation, setImageRotation] = useState(0);
 
@@ -79,6 +85,15 @@ export default function ApplicationDetailPage() {
 
         if (data.success && data.data && data.data.length > 0) {
           setApplication(data.data[0]);
+          // 初期選択: 免許証があれば免許証、なければ最初の車検証、それもなければ最初の保険証
+          const app = data.data[0] as ApplicationOverview;
+          if (app.license) {
+            setSelectedDoc({ category: "license", index: 0 });
+          } else if (app.vehicles.length > 0) {
+            setSelectedDoc({ category: "vehicle", index: 0 });
+          } else if (app.insurances.length > 0) {
+            setSelectedDoc({ category: "insurance", index: 0 });
+          }
         } else {
           setError("申請が見つかりませんでした");
         }
@@ -121,32 +136,50 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  // 現在選択中のドキュメントを取得
+  const getCurrentDocument = (): DriversLicense | VehicleRegistration | InsurancePolicy | null => {
+    if (!application) return null;
+    switch (selectedDoc.category) {
+      case "license":
+        return application.license;
+      case "vehicle":
+        return application.vehicles[selectedDoc.index] || null;
+      case "insurance":
+        return application.insurances[selectedDoc.index] || null;
+    }
+  };
+
+  // 現在のドキュメントのIDを取得
+  const getCurrentDocumentId = (): string | null => {
+    const doc = getCurrentDocument();
+    return doc?.id || null;
+  };
+
+  // 現在のドキュメントの承認状態
+  const getCurrentApprovalStatus = (): string | null => {
+    const doc = getCurrentDocument();
+    return doc?.approval_status || null;
+  };
+
   // 個別承認
-  const handleApproveDocument = async (docType: DocumentType) => {
+  const handleApproveDocument = async () => {
     if (!application) return;
+    const docId = getCurrentDocumentId();
+    if (!docId) return;
 
-    const docNames: Record<DocumentType, string> = {
-      license: "運転免許証",
-      vehicle: "車検証",
-      insurance: "任意保険証"
-    };
-
-    if (!confirm(`${docNames[docType]}を承認しますか？`)) return;
+    const docName = getDocumentTitle();
+    if (!confirm(`${docName}を承認しますか？`)) return;
 
     setProcessing(true);
     try {
-      const docId = docType === "license" ? application.license.id :
-                    docType === "vehicle" ? application.vehicle.id :
-                    application.insurance.id;
-
       const response = await fetch(`/api/approvals/${docId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: docType }),
+        body: JSON.stringify({ type: selectedDoc.category }),
       });
 
       if (response.ok) {
-        toast.success(`${docNames[docType]}を承認しました`);
+        toast.success(`${docName}を承認しました`);
         // データを再取得して画面を更新
         const refreshResponse = await fetch(
           `/api/applications/overview?employeeId=${employeeId}`
@@ -166,34 +199,50 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  // pending状態のドキュメントを全て取得
+  const getPendingDocuments = () => {
+    if (!application) return [];
+    const pending: { category: DocumentCategory; index: number; id: string }[] = [];
+
+    if (application.license?.approval_status === "pending") {
+      pending.push({ category: "license", index: 0, id: application.license.id });
+    }
+    application.vehicles.forEach((v, i) => {
+      if (v.approval_status === "pending") {
+        pending.push({ category: "vehicle", index: i, id: v.id });
+      }
+    });
+    application.insurances.forEach((ins, i) => {
+      if (ins.approval_status === "pending") {
+        pending.push({ category: "insurance", index: i, id: ins.id });
+      }
+    });
+    return pending;
+  };
+
   // 一括承認
   const handleApproveAll = async () => {
     if (!application) return;
-    if (!confirm("すべての書類を承認しますか？")) return;
+    const pendingDocs = getPendingDocuments();
+    if (pendingDocs.length === 0) return;
+
+    if (!confirm(`すべての審査中書類（${pendingDocs.length}件）を承認しますか？`)) return;
 
     setProcessing(true);
     try {
-      const results = await Promise.all([
-        fetch(`/api/approvals/${application.license.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "license" }),
-        }),
-        fetch(`/api/approvals/${application.vehicle.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "vehicle" }),
-        }),
-        fetch(`/api/approvals/${application.insurance.id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "insurance" }),
-        }),
-      ]);
+      const results = await Promise.all(
+        pendingDocs.map(doc =>
+          fetch(`/api/approvals/${doc.id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: doc.category }),
+          })
+        )
+      );
 
       const allSuccess = results.every((r) => r.ok);
       if (allSuccess) {
-        toast.success(`${application.employee.employee_name}さんのすべての書類を承認しました`);
+        toast.success(`${application.employee.employee_name}さんのすべての審査中書類を承認しました`);
         router.push("/admin/applications");
       } else {
         throw new Error("Some approvals failed");
@@ -207,8 +256,8 @@ export default function ApplicationDetailPage() {
   };
 
   // 個別却下
-  const handleRejectDocument = (docType: DocumentType) => {
-    setRejectTarget(docType);
+  const handleRejectDocument = () => {
+    setRejectTarget({ category: selectedDoc.category, index: selectedDoc.index });
     setShowRejectModal(true);
   };
 
@@ -220,47 +269,39 @@ export default function ApplicationDetailPage() {
 
   // 承認状態のサマリーを取得
   const getApprovalSummary = () => {
-    if (!application) return { approved: 0, rejected: 0, pending: 0, total: 3 };
+    if (!application) return { approved: 0, rejected: 0, pending: 0, total: 0 };
 
-    const statuses = [
-      application.license.approval_status,
-      application.vehicle.approval_status,
-      application.insurance.approval_status
-    ];
+    const docs: string[] = [];
+    if (application.license) docs.push(application.license.approval_status);
+    application.vehicles.forEach(v => docs.push(v.approval_status));
+    application.insurances.forEach(i => docs.push(i.approval_status));
 
     return {
-      approved: statuses.filter(s => s === "approved").length,
-      rejected: statuses.filter(s => s === "rejected").length,
-      pending: statuses.filter(s => s === "pending").length,
-      total: 3
+      approved: docs.filter(s => s === "approved").length,
+      rejected: docs.filter(s => s === "rejected").length,
+      pending: docs.filter(s => s === "pending").length,
+      total: docs.length
     };
   };
 
-  const getCurrentDocument = () => {
-    if (!application) return null;
-    switch (selectedDoc) {
-      case "license":
-        return application.license;
-      case "vehicle":
-        return application.vehicle;
-      case "insurance":
-        return application.insurance;
-    }
-  };
-
   const getDocumentTitle = () => {
-    switch (selectedDoc) {
+    if (!application) return "";
+    switch (selectedDoc.category) {
       case "license":
         return "運転免許証";
       case "vehicle":
-        return "車検証";
+        const vIndex = selectedDoc.index;
+        const vehicle = application.vehicles[vIndex];
+        return vehicle ? `車検証 (${vehicle.vehicle_number})` : `車検証 #${vIndex + 1}`;
       case "insurance":
-        return "任意保険証";
+        const iIndex = selectedDoc.index;
+        const insurance = application.insurances[iIndex];
+        return insurance ? `任意保険証 (${insurance.policy_number})` : `任意保険証 #${iIndex + 1}`;
     }
   };
 
   const getDocumentIcon = () => {
-    switch (selectedDoc) {
+    switch (selectedDoc.category) {
       case "license":
         return <FileText className="h-5 w-5 text-blue-600" />;
       case "vehicle":
@@ -268,6 +309,12 @@ export default function ApplicationDetailPage() {
       case "insurance":
         return <Shield className="h-5 w-5 text-purple-600" />;
     }
+  };
+
+  // PDFかどうかを判定
+  const isPdfFile = (url: string | undefined) => {
+    if (!url) return false;
+    return url.toLowerCase().endsWith('.pdf');
   };
 
   // ローディング中
@@ -306,6 +353,7 @@ export default function ApplicationDetailPage() {
   }
 
   const currentDoc = getCurrentDocument();
+  const summary = getApprovalSummary();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -333,12 +381,18 @@ export default function ApplicationDetailPage() {
               {/* 承認サマリー */}
               <div className="text-sm text-gray-600">
                 {(() => {
-                  const summary = getApprovalSummary();
+                  if (summary.total === 0) {
+                    return (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-800">
+                        書類なし
+                      </span>
+                    );
+                  }
                   if (summary.approved === summary.total) {
                     return (
                       <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800">
                         <CheckCircle className="w-4 h-4 mr-1" />
-                        全て承認済み
+                        全て承認済み ({summary.total}件)
                       </span>
                     );
                   } else if (summary.rejected > 0) {
@@ -369,14 +423,14 @@ export default function ApplicationDetailPage() {
               <div className="flex space-x-2">
                 <button
                   onClick={handleApproveAll}
-                  disabled={processing || getApprovalSummary().pending === 0}
+                  disabled={processing || summary.pending === 0}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   すべて承認
                 </button>
                 <button
                   onClick={handleRejectAll}
-                  disabled={processing || getApprovalSummary().pending === 0}
+                  disabled={processing || summary.pending === 0}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   すべて却下
@@ -392,183 +446,258 @@ export default function ApplicationDetailPage() {
         {/* 左パネル: 申請内容 */}
         <div className="w-1/2 bg-white border-r overflow-y-auto">
           <div className="p-6">
-            {/* ドキュメントタブ */}
-            <div className="flex space-x-2 mb-6 border-b">
-              <button
-                onClick={() => setSelectedDoc("license")}
-                className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors ${
-                  selectedDoc === "license"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <FileText className="h-4 w-4" />
-                <span className="font-medium">運転免許証</span>
-                {getStatusBadge(application.license.approval_status)}
-              </button>
-              <button
-                onClick={() => setSelectedDoc("vehicle")}
-                className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors ${
-                  selectedDoc === "vehicle"
-                    ? "border-green-600 text-green-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Car className="h-4 w-4" />
-                <span className="font-medium">車検証</span>
-                {getStatusBadge(application.vehicle.approval_status)}
-              </button>
-              <button
-                onClick={() => setSelectedDoc("insurance")}
-                className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors ${
-                  selectedDoc === "insurance"
-                    ? "border-purple-600 text-purple-600"
-                    : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                <Shield className="h-4 w-4" />
-                <span className="font-medium">任意保険証</span>
-                {getStatusBadge(application.insurance.approval_status)}
-              </button>
-            </div>
-
-            {/* 申請詳細 */}
-            <div className="space-y-6">
-              <div className="flex items-center space-x-2">
-                {getDocumentIcon()}
-                <h2 className="text-xl font-bold text-gray-900">{getDocumentTitle()}</h2>
+            {/* ドキュメントリスト */}
+            <div className="space-y-4 mb-6">
+              {/* 免許証セクション */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <FileText className="w-4 h-4 mr-1 text-blue-600" />
+                  運転免許証（1件まで）
+                </h3>
+                {application.license ? (
+                  <button
+                    onClick={() => setSelectedDoc({ category: "license", index: 0 })}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                      selectedDoc.category === "license"
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{application.license.license_number}</span>
+                      {getStatusBadge(application.license.approval_status)}
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      有効期限: {new Date(application.license.expiration_date).toLocaleDateString()}
+                    </p>
+                  </button>
+                ) : (
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-500 text-sm">
+                    未登録
+                  </div>
+                )}
               </div>
 
-              {/* 免許証の情報 */}
-              {selectedDoc === "license" && (
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">基本情報</h3>
-                    <dl className="space-y-2">
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">免許証番号</dt>
-                        <dd className="text-sm font-medium text-gray-900">
-                          {application.license.license_number}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">有効期限</dt>
-                        <dd className="text-sm font-medium text-gray-900">
-                          {new Date(application.license.expiration_date).toLocaleDateString()}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">承認状態</dt>
-                        <dd>{getStatusBadge(application.license.approval_status)}</dd>
-                      </div>
-                    </dl>
+              {/* 車検証セクション */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <Car className="w-4 h-4 mr-1 text-green-600" />
+                  車検証（{application.vehicles.length}件）
+                </h3>
+                {application.vehicles.length > 0 ? (
+                  <div className="space-y-2">
+                    {application.vehicles.map((vehicle, index) => (
+                      <button
+                        key={vehicle.id}
+                        onClick={() => setSelectedDoc({ category: "vehicle", index })}
+                        className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                          selectedDoc.category === "vehicle" && selectedDoc.index === index
+                            ? "border-green-600 bg-green-50"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{vehicle.vehicle_number}</span>
+                          {getStatusBadge(vehicle.approval_status)}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {vehicle.manufacturer} {vehicle.model_name} |
+                          車検期限: {new Date(vehicle.inspection_expiration_date).toLocaleDateString()}
+                        </p>
+                      </button>
+                    ))}
                   </div>
-                </div>
-              )}
-
-              {/* 車検証の情報 */}
-              {selectedDoc === "vehicle" && (
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">基本情報</h3>
-                    <dl className="space-y-2">
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">車両番号</dt>
-                        <dd className="text-sm font-medium text-gray-900">
-                          {application.vehicle.vehicle_number}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">車検期限</dt>
-                        <dd className="text-sm font-medium text-gray-900">
-                          {new Date(
-                            application.vehicle.inspection_expiration_date
-                          ).toLocaleDateString()}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">承認状態</dt>
-                        <dd>{getStatusBadge(application.vehicle.approval_status)}</dd>
-                      </div>
-                    </dl>
+                ) : (
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-500 text-sm">
+                    未登録
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* 任意保険の情報 */}
-              {selectedDoc === "insurance" && (
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">基本情報</h3>
-                    <dl className="space-y-2">
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">証券番号</dt>
-                        <dd className="text-sm font-medium text-gray-900">
-                          {application.insurance.policy_number}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">保険期限</dt>
-                        <dd className="text-sm font-medium text-gray-900">
-                          {new Date(application.insurance.coverage_end_date).toLocaleDateString()}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between">
-                        <dt className="text-sm text-gray-600">承認状態</dt>
-                        <dd>{getStatusBadge(application.insurance.approval_status)}</dd>
-                      </div>
-                    </dl>
+              {/* 任意保険証セクション */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <Shield className="w-4 h-4 mr-1 text-purple-600" />
+                  任意保険証（{application.insurances.length}件）
+                </h3>
+                {application.insurances.length > 0 ? (
+                  <div className="space-y-2">
+                    {application.insurances.map((insurance, index) => (
+                      <button
+                        key={insurance.id}
+                        onClick={() => setSelectedDoc({ category: "insurance", index })}
+                        className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                          selectedDoc.category === "insurance" && selectedDoc.index === index
+                            ? "border-purple-600 bg-purple-50"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{insurance.policy_number}</span>
+                          {getStatusBadge(insurance.approval_status)}
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {insurance.insurance_company} |
+                          保険期限: {new Date(insurance.coverage_end_date).toLocaleDateString()}
+                        </p>
+                      </button>
+                    ))}
                   </div>
-                </div>
-              )}
-
-              {/* 操作ボタン */}
-              <div className="pt-4 border-t space-y-2">
-                {(() => {
-                  const currentStatus = selectedDoc === "license" ? application.license.approval_status :
-                                        selectedDoc === "vehicle" ? application.vehicle.approval_status :
-                                        application.insurance.approval_status;
-
-                  if (currentStatus === "approved") {
-                    return (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                        <CheckCircle className="inline h-6 w-6 text-green-600 mb-2" />
-                        <p className="text-green-800 font-medium">この書類は承認済みです</p>
-                      </div>
-                    );
-                  } else if (currentStatus === "rejected") {
-                    return (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-                        <XCircle className="inline h-6 w-6 text-red-600 mb-2" />
-                        <p className="text-red-800 font-medium">この書類は却下済みです</p>
-                        <p className="text-red-600 text-sm mt-1">申請者に再申請を依頼してください</p>
-                      </div>
-                    );
-                  } else {
-                    return (
-                      <>
-                        <button
-                          onClick={() => handleApproveDocument(selectedDoc)}
-                          disabled={processing}
-                          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <CheckCircle className="inline h-5 w-5 mr-2" />
-                          {processing ? "処理中..." : `${getDocumentTitle()}を承認`}
-                        </button>
-                        <button
-                          onClick={() => handleRejectDocument(selectedDoc)}
-                          disabled={processing}
-                          className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <XCircle className="inline h-5 w-5 mr-2" />
-                          {processing ? "処理中..." : `${getDocumentTitle()}を却下`}
-                        </button>
-                      </>
-                    );
-                  }
-                })()}
+                ) : (
+                  <div className="px-4 py-3 bg-gray-50 rounded-lg text-gray-500 text-sm">
+                    未登録
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* 選択中のドキュメント詳細 */}
+            {currentDoc && (
+              <div className="border-t pt-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  {getDocumentIcon()}
+                  <h2 className="text-xl font-bold text-gray-900">{getDocumentTitle()}</h2>
+                </div>
+
+                {/* 免許証の情報 */}
+                {selectedDoc.category === "license" && application.license && (
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3">基本情報</h3>
+                      <dl className="space-y-2">
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">免許証番号</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {application.license.license_number}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">有効期限</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {new Date(application.license.expiration_date).toLocaleDateString()}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">承認状態</dt>
+                          <dd>{getStatusBadge(application.license.approval_status)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                )}
+
+                {/* 車検証の情報 */}
+                {selectedDoc.category === "vehicle" && application.vehicles[selectedDoc.index] && (
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3">基本情報</h3>
+                      <dl className="space-y-2">
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">車両番号</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {application.vehicles[selectedDoc.index].vehicle_number}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">メーカー・車種</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {application.vehicles[selectedDoc.index].manufacturer} {application.vehicles[selectedDoc.index].model_name}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">車検期限</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {new Date(application.vehicles[selectedDoc.index].inspection_expiration_date).toLocaleDateString()}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">承認状態</dt>
+                          <dd>{getStatusBadge(application.vehicles[selectedDoc.index].approval_status)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                )}
+
+                {/* 任意保険の情報 */}
+                {selectedDoc.category === "insurance" && application.insurances[selectedDoc.index] && (
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3">基本情報</h3>
+                      <dl className="space-y-2">
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">証券番号</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {application.insurances[selectedDoc.index].policy_number}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">保険会社</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {application.insurances[selectedDoc.index].insurance_company}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">保険期限</dt>
+                          <dd className="text-sm font-medium text-gray-900">
+                            {new Date(application.insurances[selectedDoc.index].coverage_end_date).toLocaleDateString()}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-sm text-gray-600">承認状態</dt>
+                          <dd>{getStatusBadge(application.insurances[selectedDoc.index].approval_status)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </div>
+                )}
+
+                {/* 操作ボタン */}
+                <div className="pt-4 border-t space-y-2 mt-4">
+                  {(() => {
+                    const currentStatus = getCurrentApprovalStatus();
+
+                    if (currentStatus === "approved") {
+                      return (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                          <CheckCircle className="inline h-6 w-6 text-green-600 mb-2" />
+                          <p className="text-green-800 font-medium">この書類は承認済みです</p>
+                        </div>
+                      );
+                    } else if (currentStatus === "rejected") {
+                      return (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                          <XCircle className="inline h-6 w-6 text-red-600 mb-2" />
+                          <p className="text-red-800 font-medium">この書類は却下済みです</p>
+                          <p className="text-red-600 text-sm mt-1">申請者に再申請を依頼してください</p>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <button
+                            onClick={handleApproveDocument}
+                            disabled={processing}
+                            className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <CheckCircle className="inline h-5 w-5 mr-2" />
+                            {processing ? "処理中..." : `${getDocumentTitle()}を承認`}
+                          </button>
+                          <button
+                            onClick={handleRejectDocument}
+                            disabled={processing}
+                            className="w-full px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <XCircle className="inline h-5 w-5 mr-2" />
+                            {processing ? "処理中..." : `${getDocumentTitle()}を却下`}
+                          </button>
+                        </>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -609,67 +738,90 @@ export default function ApplicationDetailPage() {
                   </div>
                 </div>
 
-                {/* 画像表示エリア */}
+                {/* 画像/PDF表示エリア */}
                 <div className="flex-1 relative bg-gray-900">
-                  <TransformWrapper
-                    initialScale={1}
-                    minScale={0.5}
-                    maxScale={4}
-                    centerOnInit
-                    key={imageRotation} // 回転時にリセット
-                  >
-                    {({ zoomIn, zoomOut, resetTransform }) => (
-                      <>
-                        {/* ズームコントロール */}
-                        <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
-                          <button
-                            onClick={() => zoomIn()}
-                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                            title="拡大"
-                          >
-                            <ZoomIn className="h-5 w-5 text-gray-700" />
-                          </button>
-                          <button
-                            onClick={() => zoomOut()}
-                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                            title="縮小"
-                          >
-                            <ZoomOut className="h-5 w-5 text-gray-700" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              resetTransform();
-                              setImageRotation(0);
-                            }}
-                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                            title="リセット"
-                          >
-                            <RotateCw className="h-5 w-5 text-gray-700" />
-                          </button>
-                          <a
-                            href={`/api/files/${currentDoc.image_url}`}
-                            download
-                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                            title="ダウンロード"
-                          >
-                            <Download className="h-5 w-5 text-gray-700" />
-                          </a>
-                        </div>
-
-                        <TransformComponent
-                          wrapperClass="w-full h-full"
-                          contentClass="w-full h-full flex items-center justify-center"
+                  {isPdfFile(currentDoc.image_url) ? (
+                    <>
+                      {/* PDFダウンロードボタン */}
+                      <div className="absolute top-4 right-4 z-10">
+                        <a
+                          href={`/api/files/${currentDoc.image_url}`}
+                          download
+                          className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors flex items-center space-x-2"
+                          title="ダウンロード"
                         >
-                          <img
-                            src={`/api/files/${currentDoc.image_url}`}
-                            alt={getDocumentTitle()}
-                            className="max-w-full max-h-full object-contain transition-transform duration-300"
-                            style={{ transform: `rotate(${imageRotation}deg)` }}
-                          />
-                        </TransformComponent>
-                      </>
-                    )}
-                  </TransformWrapper>
+                          <Download className="h-5 w-5 text-gray-700" />
+                          <span className="text-gray-700 text-sm">ダウンロード</span>
+                        </a>
+                      </div>
+                      {/* PDF表示 */}
+                      <iframe
+                        src={`/api/files/${currentDoc.image_url}`}
+                        className="w-full h-full"
+                        title={getDocumentTitle()}
+                      />
+                    </>
+                  ) : (
+                    <TransformWrapper
+                      initialScale={1}
+                      minScale={0.5}
+                      maxScale={4}
+                      centerOnInit
+                      key={`${selectedDoc.category}-${selectedDoc.index}-${imageRotation}`}
+                    >
+                      {({ zoomIn, zoomOut, resetTransform }) => (
+                        <>
+                          {/* ズームコントロール */}
+                          <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
+                            <button
+                              onClick={() => zoomIn()}
+                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                              title="拡大"
+                            >
+                              <ZoomIn className="h-5 w-5 text-gray-700" />
+                            </button>
+                            <button
+                              onClick={() => zoomOut()}
+                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                              title="縮小"
+                            >
+                              <ZoomOut className="h-5 w-5 text-gray-700" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                resetTransform();
+                                setImageRotation(0);
+                              }}
+                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                              title="リセット"
+                            >
+                              <RotateCw className="h-5 w-5 text-gray-700" />
+                            </button>
+                            <a
+                              href={`/api/files/${currentDoc.image_url}`}
+                              download
+                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                              title="ダウンロード"
+                            >
+                              <Download className="h-5 w-5 text-gray-700" />
+                            </a>
+                          </div>
+
+                          <TransformComponent
+                            wrapperClass="w-full h-full"
+                            contentClass="w-full h-full flex items-center justify-center"
+                          >
+                            <img
+                              src={`/api/files/${currentDoc.image_url}`}
+                              alt={getDocumentTitle()}
+                              className="max-w-full max-h-full object-contain transition-transform duration-300"
+                              style={{ transform: `rotate(${imageRotation}deg)` }}
+                            />
+                          </TransformComponent>
+                        </>
+                      )}
+                    </TransformWrapper>
+                  )}
                 </div>
               </>
             )
@@ -692,15 +844,10 @@ export default function ApplicationDetailPage() {
           onClose={() => setShowRejectModal(false)}
           onReject={async () => {
             if (rejectTarget === "all") {
-              toast.success(`${application.employee.employee_name}さんのすべての書類を却下しました`);
+              toast.success(`${application.employee.employee_name}さんのすべての審査中書類を却下しました`);
               router.push("/admin/applications");
             } else {
-              const docNames: Record<DocumentType, string> = {
-                license: "運転免許証",
-                vehicle: "車検証",
-                insurance: "任意保険証"
-              };
-              toast.success(`${docNames[rejectTarget]}を却下しました`);
+              toast.success(`書類を却下しました`);
               // データを再取得して画面を更新
               const refreshResponse = await fetch(
                 `/api/applications/overview?employeeId=${employeeId}`
@@ -727,7 +874,7 @@ function RejectModal({
   onReject,
 }: {
   application: ApplicationOverview;
-  target: "all" | DocumentType;
+  target: { category: DocumentCategory; index: number } | "all";
   onClose: () => void;
   onReject: () => void;
 }) {
@@ -735,15 +882,38 @@ function RejectModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const docNames: Record<DocumentType, string> = {
-    license: "運転免許証",
-    vehicle: "車検証",
-    insurance: "任意保険証"
+  const getTargetLabel = () => {
+    if (target === "all") return "すべての審査中書類";
+    switch (target.category) {
+      case "license":
+        return "運転免許証";
+      case "vehicle":
+        const vehicle = application.vehicles[target.index];
+        return vehicle ? `車検証 (${vehicle.vehicle_number})` : `車検証 #${target.index + 1}`;
+      case "insurance":
+        const insurance = application.insurances[target.index];
+        return insurance ? `任意保険証 (${insurance.policy_number})` : `任意保険証 #${target.index + 1}`;
+    }
   };
 
-  const getTargetLabel = () => {
-    if (target === "all") return "すべての書類";
-    return docNames[target];
+  // pending状態のドキュメントを全て取得
+  const getPendingDocuments = () => {
+    const pending: { category: DocumentCategory; index: number; id: string }[] = [];
+
+    if (application.license?.approval_status === "pending") {
+      pending.push({ category: "license", index: 0, id: application.license.id });
+    }
+    application.vehicles.forEach((v, i) => {
+      if (v.approval_status === "pending") {
+        pending.push({ category: "vehicle", index: i, id: v.id });
+      }
+    });
+    application.insurances.forEach((ins, i) => {
+      if (ins.approval_status === "pending") {
+        pending.push({ category: "insurance", index: i, id: ins.id });
+      }
+    });
+    return pending;
   };
 
   const handleSubmit = async () => {
@@ -756,24 +926,17 @@ function RejectModal({
     setError(null);
     try {
       if (target === "all") {
-        // 一括却下
-        const results = await Promise.all([
-          fetch(`/api/approvals/${application.license.id}/reject`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "license", reason }),
-          }),
-          fetch(`/api/approvals/${application.vehicle.id}/reject`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "vehicle", reason }),
-          }),
-          fetch(`/api/approvals/${application.insurance.id}/reject`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "insurance", reason }),
-          }),
-        ]);
+        // 一括却下: pending状態のもののみ
+        const pendingDocs = getPendingDocuments();
+        const results = await Promise.all(
+          pendingDocs.map(doc =>
+            fetch(`/api/approvals/${doc.id}/reject`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: doc.category, reason }),
+            })
+          )
+        );
 
         const allSuccess = results.every((r) => r.ok);
         if (!allSuccess) {
@@ -781,14 +944,23 @@ function RejectModal({
         }
       } else {
         // 個別却下
-        const docId = target === "license" ? application.license.id :
-                      target === "vehicle" ? application.vehicle.id :
-                      application.insurance.id;
+        let docId: string;
+        switch (target.category) {
+          case "license":
+            docId = application.license!.id;
+            break;
+          case "vehicle":
+            docId = application.vehicles[target.index].id;
+            break;
+          case "insurance":
+            docId = application.insurances[target.index].id;
+            break;
+        }
 
         const response = await fetch(`/api/approvals/${docId}/reject`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: target, reason }),
+          body: JSON.stringify({ type: target.category, reason }),
         });
 
         if (!response.ok) {

@@ -22,9 +22,18 @@ export async function getVehicleRegistrations(
       filter,
     });
 
+    // デバッグログ: 全レコードを表示
+    console.log(`[vehicle-registration] Raw items count: ${response.data?.items?.length || 0}`);
+    if (response.data?.items?.[0]) {
+      console.log(`[vehicle-registration] Available fields:`, Object.keys(response.data.items[0].fields));
+    }
+    response.data?.items?.forEach((item: any, index: number) => {
+      console.log(`[vehicle-registration] Item ${index}: employee_id=${item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id]}, deleted_flag=${item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag]}`);
+    });
+
     const registrations: VehicleRegistration[] =
       response.data?.items
-        ?.filter((item: any) => item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag] === false)
+        ?.filter((item: any) => item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag] !== true)
         ?.map((item: any) => ({
         id: item.record_id,
         employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
@@ -33,7 +42,7 @@ export async function getVehicleRegistrations(
         manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
         model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
         inspection_expiration_date: new Date(
-          item.fields[VEHICLE_REGISTRATION_FIELDS.inspection_expiration_date]
+          item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date]
         ),
         owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
         image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
@@ -62,21 +71,21 @@ export async function createVehicleRegistration(
   data: Omit<VehicleRegistration, "id" | "created_at" | "updated_at">
 ): Promise<VehicleRegistration> {
   try {
-    const fields = {
+    console.log(`[vehicle-registration] Creating with employee_id: ${data.employee_id}`);
+    // テーブルに存在する最小限のフィールドのみを送信
+    const fields: Record<string, any> = {
+      [VEHICLE_REGISTRATION_FIELDS.employee_id]: data.employee_id,
       [VEHICLE_REGISTRATION_FIELDS.vehicle_number]: data.vehicle_number,
-      [VEHICLE_REGISTRATION_FIELDS.manufacturer]: data.manufacturer,
-      [VEHICLE_REGISTRATION_FIELDS.model_name]: data.model_name,
-      [VEHICLE_REGISTRATION_FIELDS.owner_name]: data.owner_name,
-      [VEHICLE_REGISTRATION_FIELDS.registration_date]: data.registration_date?.getTime() || new Date().getTime(),
-      [VEHICLE_REGISTRATION_FIELDS.expiration_date]: data.expiration_date.getTime(),
+      [VEHICLE_REGISTRATION_FIELDS.expiration_date]: data.inspection_expiration_date.getTime(),
       [VEHICLE_REGISTRATION_FIELDS.image_url]: data.image_url || "",
       [VEHICLE_REGISTRATION_FIELDS.status]: data.status,
       [VEHICLE_REGISTRATION_FIELDS.approval_status]: data.approval_status,
-      [VEHICLE_REGISTRATION_FIELDS.rejection_reason]: data.rejection_reason || "",
       [VEHICLE_REGISTRATION_FIELDS.deleted_flag]: false,
     };
 
     const response = await createBaseRecord(LARK_TABLES.VEHICLE_REGISTRATIONS, fields);
+
+    console.log(`[vehicle-registration] Create response: code=${response.code}, record_id=${response.data?.record?.record_id}`);
 
     return {
       id: response.data?.record?.record_id || "",
@@ -104,10 +113,8 @@ export async function updateVehicleRegistration(
       fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number] = data.vehicle_number;
     if (data.manufacturer) fields[VEHICLE_REGISTRATION_FIELDS.manufacturer] = data.manufacturer;
     if (data.model_name) fields[VEHICLE_REGISTRATION_FIELDS.model_name] = data.model_name;
-    if (data.registration_date)
-      fields[VEHICLE_REGISTRATION_FIELDS.registration_date] = data.registration_date.getTime();
-    if (data.expiration_date)
-      fields[VEHICLE_REGISTRATION_FIELDS.expiration_date] = data.expiration_date.getTime();
+    if (data.inspection_expiration_date)
+      fields[VEHICLE_REGISTRATION_FIELDS.expiration_date] = data.inspection_expiration_date.getTime();
     if (data.owner_name) fields[VEHICLE_REGISTRATION_FIELDS.owner_name] = data.owner_name;
     if (data.image_url) fields[VEHICLE_REGISTRATION_FIELDS.image_url] = data.image_url;
     if (data.status) fields[VEHICLE_REGISTRATION_FIELDS.status] = data.status;
@@ -195,7 +202,7 @@ export async function getExpiringVehicleRegistrations(): Promise<VehicleRegistra
         manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
         model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
         inspection_expiration_date: new Date(
-          item.fields[VEHICLE_REGISTRATION_FIELDS.inspection_expiration_date]
+          item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date]
         ),
         owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
         image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
@@ -240,7 +247,7 @@ export async function getExpiredVehicleRegistrations(): Promise<VehicleRegistrat
         manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
         model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
         inspection_expiration_date: new Date(
-          item.fields[VEHICLE_REGISTRATION_FIELDS.inspection_expiration_date]
+          item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date]
         ),
         owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
         image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],

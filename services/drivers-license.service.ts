@@ -20,10 +20,10 @@ export async function getDriversLicenses(employeeId?: string): Promise<DriversLi
       filter,
     });
 
-    // Lark Baseのレスポンスを型に変換（deleted_flag=falseのみ）
+    // Lark Baseのレスポンスを型に変換（deleted_flag=trueを除外）
     const licenses: DriversLicense[] =
       response.data?.items
-        ?.filter((item: any) => item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag] === false)
+        ?.filter((item: any) => item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag] !== true)
         ?.map((item: any) => ({
         id: item.record_id,
         employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
@@ -63,8 +63,10 @@ export async function createDriversLicense(
       [DRIVERS_LICENSE_FIELDS.license_number]: data.license_number,
       [DRIVERS_LICENSE_FIELDS.license_type]: data.license_type,
       [DRIVERS_LICENSE_FIELDS.expiration_date]: data.expiration_date.getTime(), // Unixタイムスタンプ（ミリ秒）
+      [DRIVERS_LICENSE_FIELDS.image_url]: data.image_url || "",
       [DRIVERS_LICENSE_FIELDS.status]: data.status,
       [DRIVERS_LICENSE_FIELDS.approval_status]: data.approval_status,
+      [DRIVERS_LICENSE_FIELDS.deleted_flag]: false,
     };
 
     const response = await createBaseRecord(LARK_TABLES.DRIVERS_LICENSES, fields);

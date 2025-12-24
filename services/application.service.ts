@@ -1,10 +1,10 @@
-import { ApplicationOverview } from "@/types";
-import { getDriversLicenses } from "./drivers-license.service";
+import { ApplicationOverview, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
 import { getBaseRecords } from "@/lib/lark-client";
 import { LARK_TABLES } from "@/lib/lark-tables";
 
 /**
  * 統合ビュー: 社員の申請情報を3テーブル結合で取得
+ * 1:多対応: vehicles, insurances は配列で返す
  */
 export async function getApplicationOverview(
   employeeId?: string
@@ -35,36 +35,39 @@ export async function getApplicationOverview(
         }),
       ]);
 
-    // データをマップに変換（deleted_flag=falseのものだけ）
-    const licensesMap = new Map(
-      licensesResponse.data?.items
-        ?.filter((item: any) => item.fields.deleted_flag === false)
-        ?.map((item: any) => [
-          item.fields.employee_id,
-          {
-          id: item.record_id,
-          employee_id: item.fields.employee_id,
-          license_number: item.fields.license_number,
-          license_type: item.fields.license_type,
-          issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
-          expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
-          image_url: item.fields.image_url,
-          status: item.fields.status,
-          approval_status: item.fields.approval_status,
-          rejection_reason: item.fields.rejection_reason,
-          created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
-          updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
-          deleted_flag: false,
-        },
-      ]) || []
-    );
+    // 免許証: 1:1なのでMapでOK（最初の1件を使用）
+    const licensesMap = new Map<string, DriversLicense>();
+    licensesResponse.data?.items
+      ?.filter((item: any) => item.fields.deleted_flag === false)
+      ?.forEach((item: any) => {
+        const empId = item.fields.employee_id;
+        // 1:1なので最初の1件だけ保存
+        if (!licensesMap.has(empId)) {
+          licensesMap.set(empId, {
+            id: item.record_id,
+            employee_id: item.fields.employee_id,
+            license_number: item.fields.license_number,
+            license_type: item.fields.license_type,
+            issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
+            expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
+            image_url: item.fields.image_url,
+            status: item.fields.status,
+            approval_status: item.fields.approval_status,
+            rejection_reason: item.fields.rejection_reason,
+            created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
+            updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
+            deleted_flag: false,
+          } as DriversLicense);
+        }
+      });
 
-    const vehiclesMap = new Map(
-      vehiclesResponse.data?.items
-        ?.filter((item: any) => item.fields.deleted_flag === false)
-        ?.map((item: any) => [
-          item.fields.employee_id,
-          {
+    // 車検証: 1:多なので配列でグループ化
+    const vehiclesMap = new Map<string, VehicleRegistration[]>();
+    vehiclesResponse.data?.items
+      ?.filter((item: any) => item.fields.deleted_flag === false)
+      ?.forEach((item: any) => {
+        const empId = item.fields.employee_id;
+        const vehicle: VehicleRegistration = {
           id: item.record_id,
           employee_id: item.fields.employee_id,
           vehicle_number: item.fields.vehicle_number,
@@ -80,16 +83,21 @@ export async function getApplicationOverview(
           created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
           updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
           deleted_flag: false,
-        },
-      ]) || []
-    );
+        } as VehicleRegistration;
 
-    const insurancesMap = new Map(
-      insurancesResponse.data?.items
-        ?.filter((item: any) => item.fields.deleted_flag === false)
-        ?.map((item: any) => [
-          item.fields.employee_id,
-          {
+        if (!vehiclesMap.has(empId)) {
+          vehiclesMap.set(empId, []);
+        }
+        vehiclesMap.get(empId)!.push(vehicle);
+      });
+
+    // 保険証: 1:多なので配列でグループ化
+    const insurancesMap = new Map<string, InsurancePolicy[]>();
+    insurancesResponse.data?.items
+      ?.filter((item: any) => item.fields.deleted_flag === false)
+      ?.forEach((item: any) => {
+        const empId = item.fields.employee_id;
+        const insurance: InsurancePolicy = {
           id: item.record_id,
           employee_id: item.fields.employee_id,
           policy_number: item.fields.policy_number,
@@ -105,9 +113,13 @@ export async function getApplicationOverview(
           created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
           updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
           deleted_flag: false,
-        },
-      ]) || []
-    );
+        } as InsurancePolicy;
+
+        if (!insurancesMap.has(empId)) {
+          insurancesMap.set(empId, []);
+        }
+        insurancesMap.get(empId)!.push(insurance);
+      });
 
     // 社員マスタを基準に結合
     console.log('DEBUG: Employees count:', employeesResponse.data?.items?.length || 0);
@@ -119,19 +131,19 @@ export async function getApplicationOverview(
       employeesResponse.data?.items
         ?.map((item: any): ApplicationOverview | null => {
           const empId = item.fields.employee_id;
-          const license = licensesMap.get(empId);
-          const vehicle = vehiclesMap.get(empId);
-          const insurance = insurancesMap.get(empId);
+          const license = licensesMap.get(empId) || null;
+          const vehicles = vehiclesMap.get(empId) || [];
+          const insurances = insurancesMap.get(empId) || [];
 
           console.log(`DEBUG: Employee ${empId}:`, {
             hasLicense: !!license,
-            hasVehicle: !!vehicle,
-            hasInsurance: !!insurance,
+            vehicleCount: vehicles.length,
+            insuranceCount: insurances.length,
           });
 
-          // 3つすべてが揃っている場合のみ返す
-          if (!license || !vehicle || !insurance) {
-            console.log(`DEBUG: Skipping employee ${empId} - missing documents`);
+          // いずれかの書類がある場合のみ返す
+          if (!license && vehicles.length === 0 && insurances.length === 0) {
+            console.log(`DEBUG: Skipping employee ${empId} - no documents`);
             return null;
           }
 
@@ -151,8 +163,8 @@ export async function getApplicationOverview(
               updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
             },
             license,
-            vehicle,
-            insurance,
+            vehicles,
+            insurances,
           };
         }) || [];
 
@@ -175,12 +187,16 @@ export async function getPendingApplications(): Promise<ApplicationOverview[]> {
     const overviews = await getApplicationOverview();
 
     // 承認待ち（いずれか1つでもpending）の申請のみフィルタ
-    return overviews.filter(
-      (overview) =>
-        overview.license.approval_status === "pending" ||
-        overview.vehicle.approval_status === "pending" ||
-        overview.insurance.approval_status === "pending"
-    );
+    return overviews.filter((overview) => {
+      // 免許証がpending
+      const licensePending = overview.license?.approval_status === "pending";
+      // 車検証のいずれかがpending
+      const vehiclePending = overview.vehicles.some(v => v.approval_status === "pending");
+      // 保険証のいずれかがpending
+      const insurancePending = overview.insurances.some(i => i.approval_status === "pending");
+
+      return licensePending || vehiclePending || insurancePending;
+    });
   } catch (error) {
     console.error("Error fetching pending applications:", error);
     throw error;
@@ -195,12 +211,18 @@ export async function getApprovedApplications(): Promise<ApplicationOverview[]> 
     const overviews = await getApplicationOverview();
 
     // 全て承認済みの申請のみフィルタ
-    return overviews.filter(
-      (overview) =>
-        overview.license.approval_status === "approved" &&
-        overview.vehicle.approval_status === "approved" &&
-        overview.insurance.approval_status === "approved"
-    );
+    return overviews.filter((overview) => {
+      // 免許証が承認済み
+      const licenseApproved = overview.license?.approval_status === "approved";
+      // 車検証がすべて承認済み（1件以上必須）
+      const vehiclesApproved = overview.vehicles.length > 0 &&
+        overview.vehicles.every(v => v.approval_status === "approved");
+      // 保険証がすべて承認済み（1件以上必須）
+      const insurancesApproved = overview.insurances.length > 0 &&
+        overview.insurances.every(i => i.approval_status === "approved");
+
+      return licenseApproved && vehiclesApproved && insurancesApproved;
+    });
   } catch (error) {
     console.error("Error fetching approved applications:", error);
     throw error;

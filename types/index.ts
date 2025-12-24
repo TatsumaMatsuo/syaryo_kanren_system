@@ -85,11 +85,12 @@ export interface InsurancePolicy {
 }
 
 // 統合ビュー型（管理者画面用）
+// 1:多対応: vehicles, insurances は配列
 export interface ApplicationOverview {
   employee: Employee;
-  license: DriversLicense;
-  vehicle: VehicleRegistration;
-  insurance: InsurancePolicy;
+  license: DriversLicense | null;
+  vehicles: VehicleRegistration[];
+  insurances: InsurancePolicy[];
 }
 
 // 通知履歴型

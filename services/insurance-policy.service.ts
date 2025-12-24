@@ -20,9 +20,15 @@ export async function getInsurancePolicies(employeeId?: string): Promise<Insuran
       filter,
     });
 
+    // デバッグログ: フィールド名を表示
+    console.log(`[insurance-policy] Raw items count: ${response.data?.items?.length || 0}`);
+    if (response.data?.items?.[0]) {
+      console.log(`[insurance-policy] Available fields:`, Object.keys(response.data.items[0].fields));
+    }
+
     const policies: InsurancePolicy[] =
       response.data?.items
-        ?.filter((item: any) => item.fields[INSURANCE_POLICY_FIELDS.deleted_flag] === false)
+        ?.filter((item: any) => item.fields[INSURANCE_POLICY_FIELDS.deleted_flag] !== true)
         ?.map((item: any) => ({
         id: item.record_id,
         employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
@@ -59,6 +65,7 @@ export async function createInsurancePolicy(
 ): Promise<InsurancePolicy> {
   try {
     const fields = {
+      [INSURANCE_POLICY_FIELDS.employee_id]: data.employee_id,
       [INSURANCE_POLICY_FIELDS.policy_number]: data.policy_number,
       [INSURANCE_POLICY_FIELDS.insurance_company]: data.insurance_company,
       [INSURANCE_POLICY_FIELDS.policy_type]: data.policy_type,

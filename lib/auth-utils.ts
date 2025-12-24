@@ -16,9 +16,8 @@ export async function getCurrentLarkUserId(): Promise<string | null> {
       return null;
     }
 
-    // NextAuthのセッションからuser.idを取得
-    // これはLark OAuth認証時に設定されたopen_idまたはunion_id
-    return (session.user as any).id || session.user.email || null;
+    // employee_idはメールアドレスで統一
+    return session.user.email || null;
   } catch (error) {
     console.error("Failed to get current user ID:", error);
     return null;
@@ -63,7 +62,8 @@ export async function requireAuth() {
     };
   }
 
-  const userId = (session.user as any).id || session.user.email || null;
+  // employee_idはメールアドレスで統一
+  const userId = session.user.email || null;
 
   return {
     authorized: true,

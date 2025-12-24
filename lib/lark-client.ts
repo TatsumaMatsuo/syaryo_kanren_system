@@ -57,6 +57,8 @@ export async function getBaseRecords(tableId: string, params?: {
  */
 export async function createBaseRecord(tableId: string, fields: Record<string, any>) {
   try {
+    console.log(`[lark-client] createBaseRecord - tableId: ${tableId}, fields:`, JSON.stringify(fields, null, 2));
+
     const response = await larkClient.bitable.appTableRecord.create({
       path: {
         app_token: LARK_BASE_TOKEN,
@@ -66,6 +68,10 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
         fields,
       },
     });
+
+    if (response.code !== 0) {
+      console.error(`[lark-client] createBaseRecord FAILED - code: ${response.code}, msg: ${response.msg}`);
+    }
 
     return response;
   } catch (error) {

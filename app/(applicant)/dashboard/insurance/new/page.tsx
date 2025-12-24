@@ -51,8 +51,8 @@ export default function NewInsurancePage() {
         fileKey = uploadResult.file_key;
       }
 
-      // セッションからユーザーIDを取得
-      const employeeId = (session.user as any).id || session.user.email || "unknown";
+      // セッションからユーザーID（メールアドレス）を取得
+      const employeeId = session.user.email || "unknown";
 
       // 2. 申請データを送信
       const response = await fetch("/api/applications/insurance", {

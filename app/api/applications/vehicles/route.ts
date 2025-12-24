@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    console.log(`[vehicles API] Creating vehicle with employee_id: ${body.employee_id}`);
+
     const vehicle = await createVehicleRegistration({
       employee_id: body.employee_id,
       vehicle_number: body.vehicle_number,

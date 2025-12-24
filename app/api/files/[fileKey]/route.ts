@@ -1,27 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { larkClient } from "@/lib/lark-client";
 import { requireAuth } from "@/lib/auth-utils";
 import { detectFileType, isPdfMimeType } from "@/lib/file-type-detection";
+import fs from "fs";
+import path from "path";
+
+// ローカルファイル保存ディレクトリ
+const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 /**
  * GET /api/files/[fileKey]
  *
- * Larkに保存されたファイルをダウンロードして返す
+ * ローカルストレージに保存されたファイルを返す
  * 認証済みユーザーのみアクセス可能
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { fileKey: string } }
+  { params }: { params: Promise<{ fileKey: string }> }
 ) {
   try {
     // 認証チェック
     const authCheck = await requireAuth();
     if (!authCheck.authorized) {
-      console.warn(`[File API] Unauthorized access attempt - fileKey: ${params.fileKey}`);
+      const resolvedParams = await params;
+      console.warn(`[File API] Unauthorized access attempt - fileKey: ${resolvedParams.fileKey}`);
       return authCheck.response;
     }
 
-    const { fileKey } = params;
+    const resolvedParams = await params;
+    const { fileKey } = resolvedParams;
 
     if (!fileKey) {
       return NextResponse.json(
@@ -30,25 +36,24 @@ export async function GET(
       );
     }
 
-    // アクセスログ記録
-    console.log(`[File API] Access granted - user: ${authCheck.userId}, fileKey: ${fileKey}`);
+    // パストラバーサル攻撃の防止
+    const sanitizedFileKey = path.basename(fileKey);
+    const filePath = path.join(UPLOAD_DIR, sanitizedFileKey);
 
-    // Larkからファイルをダウンロード
-    const response = await larkClient.im.file.get({
-      path: {
-        file_key: fileKey,
-      },
-    });
-
-    if (!response.success || !response.data?.file) {
-      console.error(`[File API] Failed to download - fileKey: ${fileKey}, user: ${authCheck.userId}`);
+    // ファイルが存在するか確認
+    if (!fs.existsSync(filePath)) {
+      console.warn(`[File API] File not found - fileKey: ${fileKey}, user: ${authCheck.userId}`);
       return NextResponse.json(
-        { error: "Failed to download file from Lark" },
-        { status: 500 }
+        { error: "File not found" },
+        { status: 404 }
       );
     }
 
-    const fileBuffer = response.data.file;
+    // アクセスログ記録
+    console.log(`[File API] Access granted - user: ${authCheck.userId}, fileKey: ${fileKey}`);
+
+    // ファイルを読み込み
+    const fileBuffer = fs.readFileSync(filePath);
 
     // マジックバイトからファイルタイプを検出
     const detectedType = detectFileType(fileBuffer);
@@ -56,10 +61,8 @@ export async function GET(
 
     console.log(`[File API] Detected content type: ${contentType} for fileKey: ${fileKey}`);
 
-    // PDFの場合はインライン表示を許可
-    const contentDisposition = isPdfMimeType(contentType)
-      ? "inline"
-      : "inline";
+    // PDFの場合もインライン表示
+    const contentDisposition = "inline";
 
     return new NextResponse(fileBuffer, {
       headers: {
