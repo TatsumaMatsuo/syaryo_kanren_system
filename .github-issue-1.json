@@ -1,0 +1,5 @@
+{
+  "title": "🔔 Lark Messenger通知機能の実装",
+  "body": "## 📋 要件\n\n- [ ] 承認時の通知メッセージ送信機能\n- [ ] 却下時の通知メッセージ送信機能（理由を含む）\n- [ ] Lark Messenger APIとの連携\n- [ ] 通知送信エラーハンドリング\n- [ ] 通知テンプレートの作成\n\n## 🛠️ 技術スタック\n\n- Lark Messenger API\n- TypeScript\n- Next.js API Routes\n\n## 📝 説明\n\n承認・却下時にLark Messengerで申請者に自動通知を送信する機能を実装します。\n\n### 承認時の通知例\n```\n【マイカー通勤申請】承認完了\n\n山田太郎さん\n\nあなたのマイカー通勤申請が承認されました。\n\n📄 免許証: 承認済み\n🚗 車検証: 承認済み\n🛡️ 任意保険: 承認済み\n\n承認者: 総務部 佐藤次郎\n承認日時: 2024-12-24 14:30\n```\n\n### 却下時の通知例\n```\n【マイカー通勤申請】却下のお知らせ\n\n山田太郎さん\n\n申し訳ございませんが、あなたのマイカー通勤申請が却下されました。\n\n却下理由:\n免許証の有効期限が切れています。更新後に再度申請してください。\n\n却下者: 総務部 佐藤次郎\n却下日時: 2024-12-24 14:30\n\n再申請は以下から行えます:\nhttp://localhost:3001/dashboard\n```\n\n## 📊 成功条件\n\n- [ ] TypeScript エラー: 0件\n- [ ] 通知送信成功率: ≥99%\n- [ ] エラーハンドリング実装済み\n- [ ] ユニットテスト実装\n\n## 🔗 関連ファイル\n\n- `app/api/approvals/[id]/route.ts` - 承認API\n- `app/api/approvals/[id]/reject/route.ts` - 却下API\n- `lib/lark-client.ts` - Lark API クライアント\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "labels": ["enhancement", "priority-high"]
+}

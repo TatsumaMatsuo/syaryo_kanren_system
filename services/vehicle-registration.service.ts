@@ -15,15 +15,17 @@ export async function getVehicleRegistrations(
 ): Promise<VehicleRegistration[]> {
   try {
     const filter = employeeId
-      ? `AND(CurrentValue.[deleted_flag]=false, CurrentValue.[employee_id]="${employeeId}")`
-      : `CurrentValue.[deleted_flag]=false`;
+      ? `CurrentValue.[employee_id]="${employeeId}"`
+      : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
       filter,
     });
 
     const registrations: VehicleRegistration[] =
-      response.data?.items?.map((item: any) => ({
+      response.data?.items
+        ?.filter((item: any) => item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag] === false)
+        ?.map((item: any) => ({
         id: item.record_id,
         employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
         vehicle_number: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number],
@@ -61,20 +63,16 @@ export async function createVehicleRegistration(
 ): Promise<VehicleRegistration> {
   try {
     const fields = {
-      [VEHICLE_REGISTRATION_FIELDS.employee_id]: data.employee_id,
       [VEHICLE_REGISTRATION_FIELDS.vehicle_number]: data.vehicle_number,
-      [VEHICLE_REGISTRATION_FIELDS.vehicle_type]: data.vehicle_type,
       [VEHICLE_REGISTRATION_FIELDS.manufacturer]: data.manufacturer,
       [VEHICLE_REGISTRATION_FIELDS.model_name]: data.model_name,
-      [VEHICLE_REGISTRATION_FIELDS.inspection_expiration_date]:
-        data.inspection_expiration_date.toISOString(),
       [VEHICLE_REGISTRATION_FIELDS.owner_name]: data.owner_name,
-      [VEHICLE_REGISTRATION_FIELDS.image_url]: data.image_url,
+      [VEHICLE_REGISTRATION_FIELDS.registration_date]: data.registration_date?.getTime() || new Date().getTime(),
+      [VEHICLE_REGISTRATION_FIELDS.expiration_date]: data.expiration_date.getTime(),
+      [VEHICLE_REGISTRATION_FIELDS.image_url]: data.image_url || "",
       [VEHICLE_REGISTRATION_FIELDS.status]: data.status,
       [VEHICLE_REGISTRATION_FIELDS.approval_status]: data.approval_status,
       [VEHICLE_REGISTRATION_FIELDS.rejection_reason]: data.rejection_reason || "",
-      [VEHICLE_REGISTRATION_FIELDS.created_at]: new Date().toISOString(),
-      [VEHICLE_REGISTRATION_FIELDS.updated_at]: new Date().toISOString(),
       [VEHICLE_REGISTRATION_FIELDS.deleted_flag]: false,
     };
 
@@ -100,18 +98,16 @@ export async function updateVehicleRegistration(
   data: Partial<Omit<VehicleRegistration, "id" | "created_at">>
 ): Promise<void> {
   try {
-    const fields: Record<string, any> = {
-      [VEHICLE_REGISTRATION_FIELDS.updated_at]: new Date().toISOString(),
-    };
+    const fields: Record<string, any> = {};
 
     if (data.vehicle_number)
       fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number] = data.vehicle_number;
-    if (data.vehicle_type) fields[VEHICLE_REGISTRATION_FIELDS.vehicle_type] = data.vehicle_type;
     if (data.manufacturer) fields[VEHICLE_REGISTRATION_FIELDS.manufacturer] = data.manufacturer;
     if (data.model_name) fields[VEHICLE_REGISTRATION_FIELDS.model_name] = data.model_name;
-    if (data.inspection_expiration_date)
-      fields[VEHICLE_REGISTRATION_FIELDS.inspection_expiration_date] =
-        data.inspection_expiration_date.toISOString();
+    if (data.registration_date)
+      fields[VEHICLE_REGISTRATION_FIELDS.registration_date] = data.registration_date.getTime();
+    if (data.expiration_date)
+      fields[VEHICLE_REGISTRATION_FIELDS.expiration_date] = data.expiration_date.getTime();
     if (data.owner_name) fields[VEHICLE_REGISTRATION_FIELDS.owner_name] = data.owner_name;
     if (data.image_url) fields[VEHICLE_REGISTRATION_FIELDS.image_url] = data.image_url;
     if (data.status) fields[VEHICLE_REGISTRATION_FIELDS.status] = data.status;

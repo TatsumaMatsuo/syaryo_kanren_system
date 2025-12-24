@@ -1,14 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, Car, Shield, CheckCircle, Clock, XCircle } from "lucide-react";
 
 export default function Dashboard() {
-  // TODO: 実際のユーザー情報を取得
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  // 未認証の場合はログインページにリダイレクト
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    }
+  }, [status, router]);
+
+  // ローディング中
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // セッションがない場合は何も表示しない（リダイレクト中）
+  if (!session || !session.user) {
+    return null;
+  }
+
   const user = {
-    name: "山田 太郎",
-    employee_id: "EMP001",
+    name: session.user.name || "ゲスト",
+    employee_id: (session.user as any).id || session.user.email || "N/A",
   };
 
   // TODO: 実際の申請状況を取得

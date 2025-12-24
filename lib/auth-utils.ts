@@ -12,11 +12,37 @@ import {
 export async function getCurrentLarkUserId(): Promise<string | null> {
   try {
     const session = await getServerSession();
-    // TODO: NextAuth sessionからLark User IDを取得
-    // 現在はモック実装
-    return session?.user?.email || null;
+    if (!session || !session.user) {
+      return null;
+    }
+
+    // NextAuthのセッションからuser.idを取得
+    // これはLark OAuth認証時に設定されたopen_idまたはunion_id
+    return (session.user as any).id || session.user.email || null;
   } catch (error) {
     console.error("Failed to get current user ID:", error);
+    return null;
+  }
+}
+
+/**
+ * サーバーサイドで現在のユーザー情報を取得
+ */
+export async function getCurrentUser() {
+  try {
+    const session = await getServerSession();
+    if (!session || !session.user) {
+      return null;
+    }
+
+    return {
+      id: (session.user as any).id || null,
+      name: session.user.name || null,
+      email: session.user.email || null,
+      image: session.user.image || null,
+    };
+  } catch (error) {
+    console.error("Failed to get current user:", error);
     return null;
   }
 }

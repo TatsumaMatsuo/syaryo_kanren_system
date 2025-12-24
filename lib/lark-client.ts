@@ -12,6 +12,17 @@ export const larkClient = new lark.Client({
 export const LARK_BASE_TOKEN = process.env.LARK_BASE_TOKEN || "";
 
 /**
+ * Larkクライアントを取得
+ * 環境変数が設定されているか確認
+ */
+export function getLarkClient() {
+  if (!process.env.LARK_APP_ID || !process.env.LARK_APP_SECRET) {
+    return null;
+  }
+  return larkClient;
+}
+
+/**
  * Lark Baseからレコードを取得
  */
 export async function getBaseRecords(tableId: string, params?: {
@@ -72,6 +83,12 @@ export async function updateBaseRecord(
   fields: Record<string, any>
 ) {
   try {
+    console.log('DEBUG updateBaseRecord:', {
+      tableId,
+      recordId,
+      fields: JSON.stringify(fields, null, 2),
+    });
+
     const response = await larkClient.bitable.appTableRecord.update({
       path: {
         app_token: LARK_BASE_TOKEN,
@@ -81,6 +98,12 @@ export async function updateBaseRecord(
       data: {
         fields,
       },
+    });
+
+    console.log('DEBUG updateBaseRecord response:', {
+      code: response.code,
+      msg: response.msg,
+      success: response.code === 0,
     });
 
     return response;
@@ -147,15 +170,177 @@ export async function getBaseTables() {
 }
 
 /**
- * Lark Baseにファイルをアップロード
+ * Larkにファイルをアップロード（IM File API使用）
+ * @param fileBuffer ファイルのBuffer
+ * @param filename ファイル名
+ * @param fileType ファイルタイプ（拡張子）
+ * @returns file_key - アップロードされたファイルのキー
  */
-export async function uploadFileToDrive(file: File | Buffer, filename: string) {
+export async function uploadFileToLark(
+  fileBuffer: Buffer,
+  filename: string,
+  fileType: string
+) {
   try {
-    // TODO: Lark Drive APIを使用してファイルをアップロード
-    // 実装は後ほど
-    throw new Error("Not implemented yet");
+    const response = await larkClient.im.file.create({
+      data: {
+        file_type: fileType,
+        file_name: filename,
+        file: fileBuffer,
+      },
+    });
+
+    if (!response.success) {
+      throw new Error("Lark file upload failed");
+    }
+
+    return {
+      success: true,
+      file_key: response.data?.file_key,
+    };
   } catch (error) {
-    console.error("Error uploading file to Lark Drive:", error);
+    console.error("Error uploading file to Lark:", error);
+    throw error;
+  }
+}
+
+/**
+ * Larkからファイルをダウンロード
+ * @param fileKey ファイルキー
+ * @returns ファイルデータ
+ */
+export async function downloadFileFromLark(fileKey: string) {
+  try {
+    const response = await larkClient.im.file.get({
+      path: {
+        file_key: fileKey,
+      },
+    });
+
+    if (!response.success) {
+      throw new Error("Lark file download failed");
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("Error downloading file from Lark:", error);
+    throw error;
+  }
+}
+
+/**
+ * 承認履歴を記録
+ * @param data 承認履歴データ
+ * @returns 作成されたレコード
+ */
+export async function createApprovalHistory(data: {
+  application_type: "license" | "vehicle" | "insurance";
+  application_id: string;
+  employee_id: string;
+  employee_name: string;
+  action: "approved" | "rejected";
+  approver_id: string;
+  approver_name: string;
+  reason?: string;
+}) {
+  try {
+    const historyTableId = process.env.LARK_APPROVAL_HISTORY_TABLE_ID;
+
+    if (!historyTableId) {
+      console.warn("LARK_APPROVAL_HISTORY_TABLE_ID not configured, skipping history recording");
+      return { success: false, message: "History table not configured" };
+    }
+
+    const fields = {
+      application_type: data.application_type,
+      application_id: data.application_id,
+      employee_id: data.employee_id,
+      employee_name: data.employee_name,
+      action: data.action,
+      approver_id: data.approver_id,
+      approver_name: data.approver_name,
+      reason: data.reason || "",
+      timestamp: Date.now(),
+      created_at: Date.now(),
+    };
+
+    console.log('DEBUG createApprovalHistory - fields:', JSON.stringify(fields, null, 2));
+
+    const response = await createBaseRecord(historyTableId, fields);
+
+    console.log('DEBUG createApprovalHistory - response:', {
+      code: response.code,
+      msg: response.msg,
+      record_id: response.data?.record?.record_id,
+    });
+
+    return {
+      success: true,
+      record_id: response.data?.record?.record_id,
+    };
+  } catch (error) {
+    console.error("Error creating approval history:", error);
+    // 履歴記録失敗してもエラーを投げずにログのみ
+    // 承認・却下処理自体は成功させる
+    return { success: false, error };
+  }
+}
+
+/**
+ * 承認履歴を取得
+ * @param params フィルター条件
+ * @returns 履歴レコード一覧
+ */
+export async function getApprovalHistory(params?: {
+  employee_id?: string;
+  approver_id?: string;
+  action?: "approved" | "rejected";
+  start_date?: number;
+  end_date?: number;
+  pageSize?: number;
+  pageToken?: string;
+}) {
+  try {
+    const historyTableId = process.env.LARK_APPROVAL_HISTORY_TABLE_ID;
+
+    if (!historyTableId) {
+      throw new Error("LARK_APPROVAL_HISTORY_TABLE_ID not configured");
+    }
+
+    // フィルター条件を構築
+    const filters: string[] = [];
+
+    if (params?.employee_id) {
+      filters.push(`CurrentValue.[employee_id] = "${params.employee_id}"`);
+    }
+
+    if (params?.approver_id) {
+      filters.push(`CurrentValue.[approver_id] = "${params.approver_id}"`);
+    }
+
+    if (params?.action) {
+      filters.push(`CurrentValue.[action] = "${params.action}"`);
+    }
+
+    if (params?.start_date) {
+      filters.push(`CurrentValue.[timestamp] >= ${params.start_date}`);
+    }
+
+    if (params?.end_date) {
+      filters.push(`CurrentValue.[timestamp] <= ${params.end_date}`);
+    }
+
+    const filter = filters.length > 0 ? filters.join(" AND ") : undefined;
+
+    const response = await getBaseRecords(historyTableId, {
+      filter,
+      pageSize: params?.pageSize || 50,
+      pageToken: params?.pageToken,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error fetching approval history:", error);
     throw error;
   }
 }

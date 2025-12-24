@@ -67,33 +67,26 @@ export default function PermissionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ヘッダー */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <Users className="h-8 w-8 mr-3 text-purple-600" />
-                ユーザー権限管理
-              </h1>
-              <p className="mt-1 text-sm text-gray-600">
-                管理者と閲覧者の権限を設定します
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <Plus className="w-5 h-5 mr-2" />
-              ユーザーを追加
-            </button>
-          </div>
+    <div className="p-8">
+      {/* ページヘッダー */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">ユーザー権限管理</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            管理者と閲覧者の権限を設定します
+          </p>
         </div>
-      </header>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          <Plus className="w-5 h-5 mr-2" />
+          ユーザーを追加
+        </button>
+      </div>
 
       {/* 権限一覧 */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div>
         {loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
@@ -167,7 +160,7 @@ export default function PermissionsPage() {
             </table>
           </div>
         )}
-      </main>
+      </div>
 
       {/* ユーザー追加モーダル */}
       {showAddModal && (
@@ -198,20 +191,41 @@ function AddUserModal({
   const [loading, setLoading] = useState(false);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    console.log('DEBUG handleSearch - searchQuery:', searchQuery);
+
+    if (!searchQuery.trim()) {
+      console.log('DEBUG handleSearch - empty query');
+      alert("検索キーワードを入力してください");
+      return;
+    }
 
     setSearching(true);
+    console.log('DEBUG handleSearch - fetching...');
+
     try {
-      const response = await fetch(
-        `/api/lark/users/search?q=${encodeURIComponent(searchQuery)}`
-      );
+      const url = `/api/lark/users/search?q=${encodeURIComponent(searchQuery)}`;
+      console.log('DEBUG handleSearch - URL:', url);
+
+      const response = await fetch(url);
+      console.log('DEBUG handleSearch - response status:', response.status);
+
       const data = await response.json();
+      console.log('DEBUG handleSearch - response data:', data);
 
       if (data.success) {
+        console.log('DEBUG handleSearch - search results count:', data.data?.length || 0);
         setSearchResults(data.data);
+
+        if (data.data.length === 0) {
+          alert("ユーザーが見つかりませんでした");
+        }
+      } else {
+        console.error('DEBUG handleSearch - API error:', data.error);
+        alert("検索に失敗しました: " + (data.error || "不明なエラー"));
       }
     } catch (error) {
       console.error("Failed to search users:", error);
+      alert("検索中にエラーが発生しました");
     } finally {
       setSearching(false);
     }

@@ -13,15 +13,17 @@ import { LARK_TABLES, INSURANCE_POLICY_FIELDS } from "@/lib/lark-tables";
 export async function getInsurancePolicies(employeeId?: string): Promise<InsurancePolicy[]> {
   try {
     const filter = employeeId
-      ? `AND(CurrentValue.[deleted_flag]=false, CurrentValue.[employee_id]="${employeeId}")`
-      : `CurrentValue.[deleted_flag]=false`;
+      ? `CurrentValue.[employee_id]="${employeeId}"`
+      : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
       filter,
     });
 
     const policies: InsurancePolicy[] =
-      response.data?.items?.map((item: any) => ({
+      response.data?.items
+        ?.filter((item: any) => item.fields[INSURANCE_POLICY_FIELDS.deleted_flag] === false)
+        ?.map((item: any) => ({
         id: item.record_id,
         employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
         policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
@@ -57,19 +59,17 @@ export async function createInsurancePolicy(
 ): Promise<InsurancePolicy> {
   try {
     const fields = {
-      [INSURANCE_POLICY_FIELDS.employee_id]: data.employee_id,
       [INSURANCE_POLICY_FIELDS.policy_number]: data.policy_number,
       [INSURANCE_POLICY_FIELDS.insurance_company]: data.insurance_company,
       [INSURANCE_POLICY_FIELDS.policy_type]: data.policy_type,
-      [INSURANCE_POLICY_FIELDS.coverage_start_date]: data.coverage_start_date.toISOString(),
-      [INSURANCE_POLICY_FIELDS.coverage_end_date]: data.coverage_end_date.toISOString(),
+      [INSURANCE_POLICY_FIELDS.coverage_start_date]: data.coverage_start_date.getTime(),
+      [INSURANCE_POLICY_FIELDS.coverage_end_date]: data.coverage_end_date.getTime(),
       [INSURANCE_POLICY_FIELDS.insured_amount]: data.insured_amount || 0,
-      [INSURANCE_POLICY_FIELDS.image_url]: data.image_url,
+      [INSURANCE_POLICY_FIELDS.image_url]: data.image_url || "",
       [INSURANCE_POLICY_FIELDS.status]: data.status,
       [INSURANCE_POLICY_FIELDS.approval_status]: data.approval_status,
       [INSURANCE_POLICY_FIELDS.rejection_reason]: data.rejection_reason || "",
-      [INSURANCE_POLICY_FIELDS.created_at]: new Date().toISOString(),
-      [INSURANCE_POLICY_FIELDS.updated_at]: new Date().toISOString(),
+      [INSURANCE_POLICY_FIELDS.created_at]: new Date().getTime(),
       [INSURANCE_POLICY_FIELDS.deleted_flag]: false,
     };
 
@@ -95,9 +95,7 @@ export async function updateInsurancePolicy(
   data: Partial<Omit<InsurancePolicy, "id" | "created_at">>
 ): Promise<void> {
   try {
-    const fields: Record<string, any> = {
-      [INSURANCE_POLICY_FIELDS.updated_at]: new Date().toISOString(),
-    };
+    const fields: Record<string, any> = {};
 
     if (data.policy_number)
       fields[INSURANCE_POLICY_FIELDS.policy_number] = data.policy_number;
@@ -105,10 +103,9 @@ export async function updateInsurancePolicy(
       fields[INSURANCE_POLICY_FIELDS.insurance_company] = data.insurance_company;
     if (data.policy_type) fields[INSURANCE_POLICY_FIELDS.policy_type] = data.policy_type;
     if (data.coverage_start_date)
-      fields[INSURANCE_POLICY_FIELDS.coverage_start_date] =
-        data.coverage_start_date.toISOString();
+      fields[INSURANCE_POLICY_FIELDS.coverage_start_date] = data.coverage_start_date.getTime();
     if (data.coverage_end_date)
-      fields[INSURANCE_POLICY_FIELDS.coverage_end_date] = data.coverage_end_date.toISOString();
+      fields[INSURANCE_POLICY_FIELDS.coverage_end_date] = data.coverage_end_date.getTime();
     if (data.insured_amount !== undefined)
       fields[INSURANCE_POLICY_FIELDS.insured_amount] = data.insured_amount;
     if (data.image_url) fields[INSURANCE_POLICY_FIELDS.image_url] = data.image_url;

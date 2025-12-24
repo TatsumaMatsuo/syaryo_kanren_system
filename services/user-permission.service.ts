@@ -2,7 +2,7 @@ import {
   getBaseRecords,
   createBaseRecord,
   updateBaseRecord,
-  deleteBaseRecord,
+  hardDeleteBaseRecord,
 } from "@/lib/lark-client";
 import { LARK_TABLES, USER_PERMISSION_FIELDS } from "@/lib/lark-tables";
 import { UserPermission, PermissionRole } from "@/types";
@@ -150,10 +150,12 @@ export async function updateUserPermission(
 }
 
 /**
- * ユーザー権限を削除
+ * ユーザー権限を削除（物理削除）
  */
 export async function deleteUserPermission(id: string): Promise<void> {
-  await deleteBaseRecord(LARK_TABLES.USER_PERMISSIONS, id);
+  console.log('DEBUG deleteUserPermission - id:', id);
+  await hardDeleteBaseRecord(LARK_TABLES.USER_PERMISSIONS, id);
+  console.log('DEBUG deleteUserPermission - deleted successfully');
 }
 
 /**

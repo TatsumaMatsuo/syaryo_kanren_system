@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { VehicleRegistrationForm } from "@/components/forms/vehicle-registration-form";
 import { VehicleRegistrationFormData } from "@/lib/validations/application";
@@ -8,22 +9,52 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default function NewVehiclePage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 未認証の場合はログインページにリダイレクト
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/auth/signin");
+    }
+  }, [status, router]);
+
   const handleSubmit = async (data: VehicleRegistrationFormData) => {
+    if (!session || !session.user) {
+      setError("ログインしてください");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      // TODO: ファイルアップロードの実装
-      const imageUrl = "https://example.com/uploaded-vehicle.jpg";
+      // 1. ファイルをLarkにアップロード
+      let fileKey = "";
+      if (data.image_file) {
+        const formData = new FormData();
+        formData.append("file", data.image_file);
 
-      // TODO: 実際のユーザーIDを取得
-      const employeeId = "EMP001";
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
 
-      // API呼び出し
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.error || "ファイルのアップロードに失敗しました");
+        }
+
+        const uploadResult = await uploadResponse.json();
+        fileKey = uploadResult.file_key;
+      }
+
+      // セッションからユーザーIDを取得
+      const employeeId = (session.user as any).id || session.user.email || "unknown";
+
+      // 2. 申請データを送信
       const response = await fetch("/api/applications/vehicles", {
         method: "POST",
         headers: {
@@ -37,12 +68,13 @@ export default function NewVehiclePage() {
           model_name: data.model_name,
           inspection_expiration_date: data.inspection_expiration_date.toISOString(),
           owner_name: data.owner_name,
-          image_url: imageUrl,
+          image_url: fileKey, // file_keyをimage_urlとして保存
         }),
       });
 
       if (!response.ok) {
-        throw new Error("申請の送信に失敗しました");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "申請の送信に失敗しました");
       }
 
       router.push("/dashboard?success=vehicle");
@@ -52,6 +84,23 @@ export default function NewVehiclePage() {
       setIsLoading(false);
     }
   };
+
+  // ローディング中
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // セッションがない場合は何も表示しない（リダイレクト中）
+  if (!session || !session.user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

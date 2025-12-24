@@ -23,6 +23,9 @@ export const LARK_TABLES = {
 
   // 通知履歴テーブル
   NOTIFICATION_HISTORY: process.env.LARK_TABLE_NOTIFICATION_HISTORY || "",
+
+  // システム設定テーブル
+  SYSTEM_SETTINGS: process.env.LARK_TABLE_SYSTEM_SETTINGS || "",
 } as const;
 
 /**
@@ -120,4 +123,12 @@ export const NOTIFICATION_HISTORY_FIELDS = {
   sent_at: "sent_at",
   status: "status",
   created_at: "created_at",
+} as const;
+
+export const SYSTEM_SETTINGS_FIELDS = {
+  id: "id",
+  setting_key: "setting_key",
+  setting_value: "setting_value",
+  updated_at: "updated_at",
+  updated_by: "updated_by",
 } as const;

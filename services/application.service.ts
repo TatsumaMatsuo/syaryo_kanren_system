@@ -15,95 +15,106 @@ export async function getApplicationOverview(
       await Promise.all([
         getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
           filter: employeeId
-            ? `AND(CurrentValue.[deleted_flag]=false, CurrentValue.[employee_id]="${employeeId}")`
-            : `CurrentValue.[deleted_flag]=false`,
+            ? `CurrentValue.[employee_id]="${employeeId}"`
+            : undefined,
         }),
         getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
           filter: employeeId
-            ? `AND(CurrentValue.[deleted_flag]=false, CurrentValue.[employee_id]="${employeeId}")`
-            : `CurrentValue.[deleted_flag]=false`,
+            ? `CurrentValue.[employee_id]="${employeeId}"`
+            : undefined,
         }),
         getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
           filter: employeeId
-            ? `AND(CurrentValue.[deleted_flag]=false, CurrentValue.[employee_id]="${employeeId}")`
-            : `CurrentValue.[deleted_flag]=false`,
+            ? `CurrentValue.[employee_id]="${employeeId}"`
+            : undefined,
         }),
         getBaseRecords(LARK_TABLES.EMPLOYEES, {
           filter: employeeId
             ? `CurrentValue.[employee_id]="${employeeId}"`
-            : `CurrentValue.[employment_status]="active"`,
+            : undefined,
         }),
       ]);
 
-    // データをマップに変換
+    // データをマップに変換（deleted_flag=falseのものだけ）
     const licensesMap = new Map(
-      licensesResponse.data?.items?.map((item: any) => [
-        item.fields.employee_id,
-        {
+      licensesResponse.data?.items
+        ?.filter((item: any) => item.fields.deleted_flag === false)
+        ?.map((item: any) => [
+          item.fields.employee_id,
+          {
           id: item.record_id,
           employee_id: item.fields.employee_id,
           license_number: item.fields.license_number,
           license_type: item.fields.license_type,
-          issue_date: new Date(item.fields.issue_date),
-          expiration_date: new Date(item.fields.expiration_date),
+          issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
+          expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
           image_url: item.fields.image_url,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
           rejection_reason: item.fields.rejection_reason,
-          created_at: new Date(item.fields.created_at),
-          updated_at: new Date(item.fields.updated_at),
+          created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
+          updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
           deleted_flag: false,
         },
       ]) || []
     );
 
     const vehiclesMap = new Map(
-      vehiclesResponse.data?.items?.map((item: any) => [
-        item.fields.employee_id,
-        {
+      vehiclesResponse.data?.items
+        ?.filter((item: any) => item.fields.deleted_flag === false)
+        ?.map((item: any) => [
+          item.fields.employee_id,
+          {
           id: item.record_id,
           employee_id: item.fields.employee_id,
           vehicle_number: item.fields.vehicle_number,
           vehicle_type: item.fields.vehicle_type,
           manufacturer: item.fields.manufacturer,
           model_name: item.fields.model_name,
-          inspection_expiration_date: new Date(item.fields.inspection_expiration_date),
+          inspection_expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
           owner_name: item.fields.owner_name,
           image_url: item.fields.image_url,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
           rejection_reason: item.fields.rejection_reason,
-          created_at: new Date(item.fields.created_at),
-          updated_at: new Date(item.fields.updated_at),
+          created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
+          updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
           deleted_flag: false,
         },
       ]) || []
     );
 
     const insurancesMap = new Map(
-      insurancesResponse.data?.items?.map((item: any) => [
-        item.fields.employee_id,
-        {
+      insurancesResponse.data?.items
+        ?.filter((item: any) => item.fields.deleted_flag === false)
+        ?.map((item: any) => [
+          item.fields.employee_id,
+          {
           id: item.record_id,
           employee_id: item.fields.employee_id,
           policy_number: item.fields.policy_number,
           insurance_company: item.fields.insurance_company,
           policy_type: item.fields.policy_type,
-          coverage_start_date: new Date(item.fields.coverage_start_date),
-          coverage_end_date: new Date(item.fields.coverage_end_date),
+          coverage_start_date: item.fields.coverage_start_date ? new Date(item.fields.coverage_start_date) : undefined,
+          coverage_end_date: item.fields.coverage_end_date ? new Date(item.fields.coverage_end_date) : undefined,
           insured_amount: item.fields.insured_amount,
           image_url: item.fields.image_url,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
           rejection_reason: item.fields.rejection_reason,
-          created_at: new Date(item.fields.created_at),
-          updated_at: new Date(item.fields.updated_at),
+          created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
+          updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
           deleted_flag: false,
         },
       ]) || []
     );
 
     // 社員マスタを基準に結合
+    console.log('DEBUG: Employees count:', employeesResponse.data?.items?.length || 0);
+    console.log('DEBUG: Licenses count:', licensesResponse.data?.items?.length || 0);
+    console.log('DEBUG: Vehicles count:', vehiclesResponse.data?.items?.length || 0);
+    console.log('DEBUG: Insurances count:', insurancesResponse.data?.items?.length || 0);
+
     const overviewsRaw =
       employeesResponse.data?.items
         ?.map((item: any): ApplicationOverview | null => {
@@ -112,25 +123,32 @@ export async function getApplicationOverview(
           const vehicle = vehiclesMap.get(empId);
           const insurance = insurancesMap.get(empId);
 
+          console.log(`DEBUG: Employee ${empId}:`, {
+            hasLicense: !!license,
+            hasVehicle: !!vehicle,
+            hasInsurance: !!insurance,
+          });
+
           // 3つすべてが揃っている場合のみ返す
           if (!license || !vehicle || !insurance) {
+            console.log(`DEBUG: Skipping employee ${empId} - missing documents`);
             return null;
           }
 
           return {
             employee: {
               employee_id: item.fields.employee_id,
-              employee_name: item.fields.employee_name,
+              employee_name: item.fields.name,
               email: item.fields.email,
               department: item.fields.department,
               role: item.fields.role,
               employment_status: item.fields.employment_status,
-              hire_date: new Date(item.fields.hire_date),
+              hire_date: item.fields.hire_date ? new Date(item.fields.hire_date) : undefined,
               resignation_date: item.fields.resignation_date
                 ? new Date(item.fields.resignation_date)
                 : undefined,
-              created_at: new Date(item.fields.created_at),
-              updated_at: new Date(item.fields.updated_at),
+              created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
+              updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
             },
             license,
             vehicle,

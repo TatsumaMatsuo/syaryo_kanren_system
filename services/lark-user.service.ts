@@ -1,4 +1,5 @@
-import { larkClient } from "@/lib/lark-client";
+import { larkClient, getBaseRecords } from "@/lib/lark-client";
+import { LARK_TABLES } from "@/lib/lark-tables";
 import { LarkUser } from "@/types";
 
 /**
@@ -8,48 +9,61 @@ import { LarkUser } from "@/types";
  */
 export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
   try {
+    console.log('DEBUG searchLarkUsers - query:', query);
+
     if (!query || query.trim().length < 2) {
+      console.log('DEBUG searchLarkUsers - query too short');
       return [];
     }
 
-    // Lark Contact API を使用してユーザーを検索
-    const response = await larkClient.contact.user.list({
-      params: {
-        page_size: 50,
-        // 部門ID指定なしで全ユーザーを取得
-      },
+    // 従業員マスタテーブルから検索
+    console.log('DEBUG searchLarkUsers - searching from employee table');
+    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+      pageSize: 100,
     });
 
+    console.log('DEBUG searchLarkUsers - Employee records count:', response.data?.items?.length || 0);
+
     if (!response.data?.items) {
+      console.log('DEBUG searchLarkUsers - No employee data');
       return [];
     }
 
     // クエリでフィルタリング
     const queryLower = query.toLowerCase();
-    const filteredUsers = response.data.items.filter((user: any) => {
-      const name = user.name?.toLowerCase() || "";
-      const email = user.email?.toLowerCase() || "";
-      const enName = user.en_name?.toLowerCase() || "";
+    const filteredUsers = response.data.items.filter((item: any) => {
+      // nameとemployee_nameの両方をチェック
+      const name = (item.fields.name || item.fields.employee_name || "").toLowerCase();
+      const email = (item.fields.email || "").toLowerCase();
+      const employeeId = (item.fields.employee_id || "").toLowerCase();
 
-      return (
+      const matches = (
         name.includes(queryLower) ||
         email.includes(queryLower) ||
-        enName.includes(queryLower)
+        employeeId.includes(queryLower)
       );
+
+      console.log(`DEBUG - Employee ${item.fields.employee_id}: ${item.fields.name || item.fields.employee_name} - matches: ${matches}`);
+
+      return matches;
     });
 
+    console.log('DEBUG searchLarkUsers - Filtered count:', filteredUsers.length);
+
     // LarkUser型に変換
-    const users: LarkUser[] = filteredUsers.map((user: any) => ({
-      open_id: user.open_id || "",
-      union_id: user.union_id,
-      user_id: user.user_id,
-      name: user.name || "",
-      en_name: user.en_name,
-      email: user.email || "",
-      mobile: user.mobile,
-      avatar: user.avatar,
-      department_ids: user.department_ids,
+    const users: LarkUser[] = filteredUsers.map((item: any) => ({
+      open_id: item.fields.employee_id || item.record_id,
+      union_id: undefined,
+      user_id: item.fields.employee_id,
+      name: item.fields.name || item.fields.employee_name || "",
+      en_name: undefined,
+      email: item.fields.email || "",
+      mobile: undefined,
+      avatar: undefined,
+      department_ids: item.fields.department ? [item.fields.department] : undefined,
     }));
+
+    console.log('DEBUG searchLarkUsers - Returning users:', users.length);
 
     return users;
   } catch (error) {

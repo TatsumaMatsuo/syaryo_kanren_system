@@ -120,6 +120,49 @@
 | deleted_flag | チェックボックス | ○ | 削除フラグ |
 | deleted_at | 日時 |  | 削除日時 |
 
+### 4.5 ユーザー権限テーブル
+
+テーブル名: `user_permissions`
+
+| フィールド名 | タイプ | 必須 | 説明 |
+|-------------|--------|------|------|
+| id | テキスト | ○ | ID（UUID） |
+| lark_user_id | テキスト | ○ | LarkユーザーID（open_id） |
+| user_name | テキスト | ○ | ユーザー名 |
+| user_email | テキスト | ○ | メールアドレス |
+| role | 単一選択 | ○ | 権限レベル（admin/viewer） |
+| granted_by | テキスト | ○ | 付与者のLarkユーザーID |
+| granted_at | 日時 | ○ | 権限付与日時 |
+| created_at | 日時 | ○ | 作成日時 |
+| updated_at | 日時 | ○ | 更新日時 |
+
+**権限レベル:**
+- `admin`: 管理者（全ての操作が可能）
+- `viewer`: 閲覧者（読み取り専用）
+
+### 4.6 通知履歴テーブル
+
+テーブル名: `notification_history`
+
+| フィールド名 | タイプ | 必須 | 説明 |
+|-------------|--------|------|------|
+| id | テキスト | ○ | ID（UUID） |
+| recipient_id | テキスト | ○ | 受信者のLarkユーザーID |
+| notification_type | 単一選択 | ○ | 通知種類 |
+| document_type | 単一選択 |  | 書類種類（license/vehicle/insurance） |
+| document_id | テキスト |  | 書類ID |
+| title | テキスト | ○ | 通知タイトル |
+| message | 長文テキスト | ○ | 通知本文 |
+| sent_at | 日時 | ○ | 送信日時 |
+| status | 単一選択 | ○ | 送信ステータス（sent/failed） |
+| created_at | 日時 | ○ | 作成日時 |
+
+**通知種類の選択肢:**
+- `expiration_warning`: 有効期限1週間前警告
+- `expiration_alert`: 有効期限切れアラート
+- `approval`: 承認通知
+- `rejection`: 却下通知
+
 ## Step 5: テーブルIDの取得
 
 各テーブルを作成したら、テーブルIDを取得します：
@@ -129,7 +172,13 @@
    ```
    https://xxx.feishu.cn/base/APP_TOKEN?table=TABLE_ID&view=VIEW_ID
    ```
-3. 4つのテーブルすべてのIDを控える
+3. 6つのテーブルすべてのIDを控える
+   - drivers_licenses
+   - vehicle_registrations
+   - insurance_policies
+   - employees
+   - user_permissions
+   - notification_history
 
 ## Step 6: 環境変数の設定
 
@@ -146,6 +195,8 @@ LARK_TABLE_DRIVERS_LICENSES=tblXXXXXXXXXX
 LARK_TABLE_VEHICLE_REGISTRATIONS=tblYYYYYYYYYY
 LARK_TABLE_INSURANCE_POLICIES=tblZZZZZZZZZZ
 LARK_TABLE_EMPLOYEES=tblWWWWWWWWWW
+LARK_TABLE_USER_PERMISSIONS=tblVVVVVVVVVV
+LARK_TABLE_NOTIFICATION_HISTORY=tblUUUUUUUUUU
 
 # Lark OAuth Configuration
 LARK_OAUTH_CLIENT_ID=your_oauth_client_id_here

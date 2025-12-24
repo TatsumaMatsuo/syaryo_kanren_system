@@ -13,16 +13,18 @@ import { LARK_TABLES, DRIVERS_LICENSE_FIELDS } from "@/lib/lark-tables";
 export async function getDriversLicenses(employeeId?: string): Promise<DriversLicense[]> {
   try {
     const filter = employeeId
-      ? `AND(CurrentValue.[deleted_flag]=false, CurrentValue.[employee_id]="${employeeId}")`
-      : `CurrentValue.[deleted_flag]=false`;
+      ? `CurrentValue.[employee_id]="${employeeId}"`
+      : undefined;
 
     const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
       filter,
     });
 
-    // Lark Baseのレスポンスを型に変換
+    // Lark Baseのレスポンスを型に変換（deleted_flag=falseのみ）
     const licenses: DriversLicense[] =
-      response.data?.items?.map((item: any) => ({
+      response.data?.items
+        ?.filter((item: any) => item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag] === false)
+        ?.map((item: any) => ({
         id: item.record_id,
         employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
         license_number: item.fields[DRIVERS_LICENSE_FIELDS.license_number],
@@ -55,19 +57,14 @@ export async function createDriversLicense(
   data: Omit<DriversLicense, "id" | "created_at" | "updated_at">
 ): Promise<DriversLicense> {
   try {
-    const fields = {
+    // テーブルに存在する最小限のフィールドのみを送信
+    const fields: Record<string, any> = {
       [DRIVERS_LICENSE_FIELDS.employee_id]: data.employee_id,
       [DRIVERS_LICENSE_FIELDS.license_number]: data.license_number,
       [DRIVERS_LICENSE_FIELDS.license_type]: data.license_type,
-      [DRIVERS_LICENSE_FIELDS.issue_date]: data.issue_date.toISOString(),
-      [DRIVERS_LICENSE_FIELDS.expiration_date]: data.expiration_date.toISOString(),
-      [DRIVERS_LICENSE_FIELDS.image_url]: data.image_url,
+      [DRIVERS_LICENSE_FIELDS.expiration_date]: data.expiration_date.getTime(), // Unixタイムスタンプ（ミリ秒）
       [DRIVERS_LICENSE_FIELDS.status]: data.status,
       [DRIVERS_LICENSE_FIELDS.approval_status]: data.approval_status,
-      [DRIVERS_LICENSE_FIELDS.rejection_reason]: data.rejection_reason || "",
-      [DRIVERS_LICENSE_FIELDS.created_at]: new Date().toISOString(),
-      [DRIVERS_LICENSE_FIELDS.updated_at]: new Date().toISOString(),
-      [DRIVERS_LICENSE_FIELDS.deleted_flag]: false,
     };
 
     const response = await createBaseRecord(LARK_TABLES.DRIVERS_LICENSES, fields);
@@ -92,15 +89,13 @@ export async function updateDriversLicense(
   data: Partial<Omit<DriversLicense, "id" | "created_at">>
 ): Promise<void> {
   try {
-    const fields: Record<string, any> = {
-      [DRIVERS_LICENSE_FIELDS.updated_at]: new Date().toISOString(),
-    };
+    const fields: Record<string, any> = {};
 
     if (data.license_number) fields[DRIVERS_LICENSE_FIELDS.license_number] = data.license_number;
     if (data.license_type) fields[DRIVERS_LICENSE_FIELDS.license_type] = data.license_type;
-    if (data.issue_date) fields[DRIVERS_LICENSE_FIELDS.issue_date] = data.issue_date.toISOString();
+    if (data.issue_date) fields[DRIVERS_LICENSE_FIELDS.issue_date] = data.issue_date.getTime();
     if (data.expiration_date)
-      fields[DRIVERS_LICENSE_FIELDS.expiration_date] = data.expiration_date.toISOString();
+      fields[DRIVERS_LICENSE_FIELDS.expiration_date] = data.expiration_date.getTime();
     if (data.image_url) fields[DRIVERS_LICENSE_FIELDS.image_url] = data.image_url;
     if (data.status) fields[DRIVERS_LICENSE_FIELDS.status] = data.status;
     if (data.approval_status)
