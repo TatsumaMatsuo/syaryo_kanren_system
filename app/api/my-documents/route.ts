@@ -21,9 +21,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const userId = authCheck.userId;
+    // クエリパラメータから employee_id を取得（代理申請用）
+    const { searchParams } = new URL(request.url);
+    const employeeIdParam = searchParams.get("employee_id");
 
-    console.log(`[my-documents] userId: ${userId}`);
+    // 代理申請の場合はパラメータのIDを使用、それ以外は認証ユーザーのID
+    const userId = employeeIdParam || authCheck.userId;
+
+    console.log(`[my-documents] userId: ${userId} (param: ${employeeIdParam}, auth: ${authCheck.userId})`);
 
     // 各書類を取得
     console.log(`[my-documents] Fetching documents...`);
