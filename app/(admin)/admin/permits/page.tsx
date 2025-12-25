@@ -67,6 +67,34 @@ function formatDate(dateString: string) {
   });
 }
 
+function getExpirationStyle(dateString: string, status: Permit["status"]) {
+  if (status !== "valid") return "";
+
+  const expDate = new Date(dateString);
+  const today = new Date();
+  const daysUntilExpiration = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysUntilExpiration <= 0) {
+    return "text-red-600 font-semibold bg-red-50 px-2 py-1 rounded";
+  } else if (daysUntilExpiration <= 30) {
+    return "text-amber-600 font-semibold bg-amber-50 px-2 py-1 rounded";
+  } else if (daysUntilExpiration <= 60) {
+    return "text-yellow-600 bg-yellow-50 px-2 py-1 rounded";
+  }
+  return "text-gray-700";
+}
+
+function getDaysUntilExpiration(dateString: string) {
+  const expDate = new Date(dateString);
+  const today = new Date();
+  const days = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (days <= 0) return "期限切れ";
+  if (days === 1) return "明日";
+  if (days <= 30) return `残り${days}日`;
+  return null;
+}
+
 export default function AdminPermitsPage() {
   const [permits, setPermits] = useState<Permit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -333,62 +361,90 @@ export default function AdminPermitsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white border rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+          <table className="min-w-full">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  社員
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  社員情報
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  車両
+                <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">
+                  車両情報
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
                   発行日
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
                   有効期限
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
                   ステータス
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-bold text-gray-600 uppercase tracking-wider">
                   操作
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPermits.map((permit) => (
-                <tr key={permit.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+            <tbody className="divide-y divide-gray-100">
+              {filteredPermits.map((permit, index) => (
+                <tr
+                  key={permit.id}
+                  className={`hover:bg-blue-50/50 transition-colors ${
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                  }`}
+                >
+                  <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-900">
-                        {permit.employee_name}
-                      </span>
+                      <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {permit.employee_name}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          ID: {permit.employee_id}
+                        </p>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                      <Car className="w-5 h-5 text-gray-400" />
+                      <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <Car className="w-5 h-5 text-green-600" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-semibold text-gray-900">
                           {permit.vehicle_number}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           {permit.vehicle_model}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(permit.issue_date)}
+                  <td className="px-6 py-5 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700">
+                        {formatDate(permit.issue_date)}
+                      </span>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(permit.expiration_date)}
+                  <td className="px-6 py-5 text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className={`text-sm ${getExpirationStyle(permit.expiration_date, permit.status)}`}>
+                        {formatDate(permit.expiration_date)}
+                      </span>
+                      {permit.status === "valid" && getDaysUntilExpiration(permit.expiration_date) && (
+                        <span className="text-xs text-gray-500">
+                          ({getDaysUntilExpiration(permit.expiration_date)})
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
+                  <td className="px-6 py-5">
+                    <div className="flex flex-col items-center gap-2">
                       {getStatusBadge(permit.status)}
                       {!permit.permit_file_key && (
                         <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
@@ -397,12 +453,12 @@ export default function AdminPermitsPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <td className="px-6 py-5">
                     <div className="flex items-center justify-end gap-2">
                       {permit.permit_file_key ? (
                         <button
                           onClick={() => handleDownload(permit.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                         >
                           <Download className="w-4 h-4" />
                           ダウンロード
@@ -411,7 +467,7 @@ export default function AdminPermitsPage() {
                         <button
                           onClick={() => handleRegenerate(permit.id)}
                           disabled={regenerating === permit.id}
-                          className="inline-flex items-center gap-1 px-3 py-1 text-sm text-orange-600 hover:text-orange-800 disabled:opacity-50"
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors shadow-sm disabled:opacity-50"
                         >
                           {regenerating === permit.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
