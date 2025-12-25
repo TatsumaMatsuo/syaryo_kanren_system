@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Shield, Loader2 } from "lucide-react";
+import { Car, Shield, Loader2 } from "lucide-react";
 
 function SignInContent() {
   const searchParams = useSearchParams();
@@ -20,8 +20,11 @@ function SignInContent() {
     <Card className="shadow-xl">
       <CardHeader className="space-y-1 text-center">
         <div className="flex justify-center mb-4">
-          <div className="bg-blue-600 p-3 rounded-full">
-            <FileText className="h-8 w-8 text-white" />
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 rounded-2xl blur-lg opacity-75 animate-pulse"></div>
+            <div className="relative bg-gradient-to-br from-orange-400 via-pink-500 to-purple-600 p-4 rounded-2xl shadow-lg">
+              <Car className="h-10 w-10 text-white drop-shadow-md" />
+            </div>
           </div>
         </div>
         <CardTitle className="text-2xl font-bold">車両関連管理システム</CardTitle>
