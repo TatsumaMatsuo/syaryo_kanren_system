@@ -30,7 +30,7 @@ export async function getApplicationOverview(
         }),
         getBaseRecords(LARK_TABLES.EMPLOYEES, {
           filter: employeeId
-            ? `CurrentValue.[employee_id]="${employeeId}"`
+            ? `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${employeeId}"`
             : undefined,
         }),
       ]);
@@ -137,18 +137,38 @@ export async function getApplicationOverview(
         ?.map((item: any): ApplicationOverview | null => {
           // 社員マスタのフィールド名（日本語）からemployee_idを取得
           const empId = item.fields[EMPLOYEE_FIELDS.employee_id] || item.fields.employee_id;
-          const empName = item.fields[EMPLOYEE_FIELDS.employee_name] ||
-                          item.fields["社員名"] ||
-                          item.fields.name ||
-                          "不明";
+
+          // 社員名フィールド（Peopleフィールドの場合はオブジェクト/配列から名前を抽出）
+          const nameField = item.fields[EMPLOYEE_FIELDS.employee_name] || item.fields["社員名"] || item.fields.name;
+          let empName = "不明";
+          if (typeof nameField === "string") {
+            empName = nameField;
+          } else if (Array.isArray(nameField) && nameField[0]?.name) {
+            empName = nameField[0].name;
+          } else if (nameField && typeof nameField === "object" && nameField.name) {
+            empName = nameField.name;
+          }
+
           // メンバーフィールドからメール・部署を取得
           const memberField = item.fields[EMPLOYEE_FIELDS.employee_name];
-          const email = item.fields[EMPLOYEE_FIELDS.email] ||
-                        (Array.isArray(memberField) && memberField[0]?.email) ||
-                        item.fields.email || "";
-          const department = item.fields[EMPLOYEE_FIELDS.department]?.join(", ") ||
-                             (Array.isArray(memberField) && memberField[0]?.department_ids?.join(", ")) ||
-                             item.fields.department || "";
+          let email = item.fields[EMPLOYEE_FIELDS.email] || item.fields.email || "";
+          if (!email && Array.isArray(memberField) && memberField[0]?.email) {
+            email = memberField[0].email;
+          } else if (!email && memberField && typeof memberField === "object" && memberField.email) {
+            email = memberField.email;
+          }
+
+          let department = "";
+          const deptField = item.fields[EMPLOYEE_FIELDS.department];
+          if (Array.isArray(deptField)) {
+            department = deptField.join(", ");
+          } else if (typeof deptField === "string") {
+            department = deptField;
+          } else if (Array.isArray(memberField) && memberField[0]?.department_ids) {
+            department = memberField[0].department_ids.join(", ");
+          } else {
+            department = item.fields.department || "";
+          }
 
           const license = licensesMap.get(empId) || null;
           const vehicles = vehiclesMap.get(empId) || [];

@@ -14,6 +14,21 @@ function generateUUID(): string {
 }
 
 /**
+ * Peopleフィールドや文字列から名前を抽出
+ */
+function extractName(field: any): string {
+  if (!field) return "";
+  if (typeof field === "string") {
+    // "[object Object]"の場合は空文字を返す
+    if (field === "[object Object]") return "";
+    return field;
+  }
+  if (Array.isArray(field) && field[0]?.name) return field[0].name;
+  if (typeof field === "object" && field.name) return field.name;
+  return "";
+}
+
+/**
  * 許可証一覧を取得
  */
 export async function getPermits(employeeId?: string): Promise<Permit[]> {
@@ -29,19 +44,30 @@ export async function getPermits(employeeId?: string): Promise<Permit[]> {
     const permits: Permit[] =
       response.data?.items?.map((item: any) => ({
         id: item.record_id || "",
-        employee_id: item.fields[PERMIT_FIELDS.employee_id],
-        employee_name: item.fields[PERMIT_FIELDS.employee_name],
-        vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id],
-        vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number],
-        vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model],
+        employee_id: item.fields[PERMIT_FIELDS.employee_id] || "",
+        employee_name: extractName(item.fields[PERMIT_FIELDS.employee_name]),
+        vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id] || "",
+        vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number] || "",
+        vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model] || "",
         issue_date: new Date(item.fields[PERMIT_FIELDS.issue_date]),
         expiration_date: new Date(item.fields[PERMIT_FIELDS.expiration_date]),
-        permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key],
-        verification_token: item.fields[PERMIT_FIELDS.verification_token],
+        permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key] || "",
+        verification_token: item.fields[PERMIT_FIELDS.verification_token] || "",
         status: item.fields[PERMIT_FIELDS.status] as PermitStatus,
         created_at: new Date(item.fields[PERMIT_FIELDS.created_at]),
         updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
       })) || [];
+
+    // employee_nameが空の場合、社員マスタから取得
+    const { getEmployee } = await import("./employee.service");
+    for (const permit of permits) {
+      if (!permit.employee_name && permit.employee_id) {
+        const employee = await getEmployee(permit.employee_id);
+        if (employee) {
+          permit.employee_name = employee.employee_name;
+        }
+      }
+    }
 
     return permits;
   } catch (error) {
@@ -64,17 +90,29 @@ export async function getPermitById(id: string): Promise<Permit | null> {
     );
     if (!item) return null;
 
+    let employeeName = extractName(item.fields[PERMIT_FIELDS.employee_name]);
+    const employeeId = item.fields[PERMIT_FIELDS.employee_id] || "";
+
+    // employee_nameが空の場合、社員マスタから取得
+    if (!employeeName && employeeId) {
+      const { getEmployee } = await import("./employee.service");
+      const employee = await getEmployee(employeeId);
+      if (employee) {
+        employeeName = employee.employee_name;
+      }
+    }
+
     return {
       id: item.record_id || "",
-      employee_id: item.fields[PERMIT_FIELDS.employee_id],
-      employee_name: item.fields[PERMIT_FIELDS.employee_name],
-      vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id],
-      vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number],
-      vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model],
+      employee_id: employeeId,
+      employee_name: employeeName,
+      vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id] || "",
+      vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number] || "",
+      vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model] || "",
       issue_date: new Date(item.fields[PERMIT_FIELDS.issue_date]),
       expiration_date: new Date(item.fields[PERMIT_FIELDS.expiration_date]),
-      permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key],
-      verification_token: item.fields[PERMIT_FIELDS.verification_token],
+      permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key] || "",
+      verification_token: item.fields[PERMIT_FIELDS.verification_token] || "",
       status: item.fields[PERMIT_FIELDS.status] as PermitStatus,
       created_at: new Date(item.fields[PERMIT_FIELDS.created_at]),
       updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
@@ -99,17 +137,29 @@ export async function getPermitByToken(token: string): Promise<Permit | null> {
     const item: any = response.data?.items?.[0];
     if (!item) return null;
 
+    let employeeName = extractName(item.fields[PERMIT_FIELDS.employee_name]);
+    const employeeId = item.fields[PERMIT_FIELDS.employee_id] || "";
+
+    // employee_nameが空の場合、社員マスタから取得
+    if (!employeeName && employeeId) {
+      const { getEmployee } = await import("./employee.service");
+      const employee = await getEmployee(employeeId);
+      if (employee) {
+        employeeName = employee.employee_name;
+      }
+    }
+
     return {
       id: item.record_id || "",
-      employee_id: item.fields[PERMIT_FIELDS.employee_id],
-      employee_name: item.fields[PERMIT_FIELDS.employee_name],
-      vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id],
-      vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number],
-      vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model],
+      employee_id: employeeId,
+      employee_name: employeeName,
+      vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id] || "",
+      vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number] || "",
+      vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model] || "",
       issue_date: new Date(item.fields[PERMIT_FIELDS.issue_date]),
       expiration_date: new Date(item.fields[PERMIT_FIELDS.expiration_date]),
-      permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key],
-      verification_token: item.fields[PERMIT_FIELDS.verification_token],
+      permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key] || "",
+      verification_token: item.fields[PERMIT_FIELDS.verification_token] || "",
       status: item.fields[PERMIT_FIELDS.status] as PermitStatus,
       created_at: new Date(item.fields[PERMIT_FIELDS.created_at]),
       updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
@@ -225,17 +275,29 @@ export async function getValidPermitByVehicleId(
     const item: any = response.data?.items?.[0];
     if (!item) return null;
 
+    let employeeName = extractName(item.fields[PERMIT_FIELDS.employee_name]);
+    const employeeId = item.fields[PERMIT_FIELDS.employee_id] || "";
+
+    // employee_nameが空の場合、社員マスタから取得
+    if (!employeeName && employeeId) {
+      const { getEmployee } = await import("./employee.service");
+      const employee = await getEmployee(employeeId);
+      if (employee) {
+        employeeName = employee.employee_name;
+      }
+    }
+
     return {
       id: item.record_id || "",
-      employee_id: item.fields[PERMIT_FIELDS.employee_id],
-      employee_name: item.fields[PERMIT_FIELDS.employee_name],
-      vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id],
-      vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number],
-      vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model],
+      employee_id: employeeId,
+      employee_name: employeeName,
+      vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id] || "",
+      vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number] || "",
+      vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model] || "",
       issue_date: new Date(item.fields[PERMIT_FIELDS.issue_date]),
       expiration_date: new Date(item.fields[PERMIT_FIELDS.expiration_date]),
-      permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key],
-      verification_token: item.fields[PERMIT_FIELDS.verification_token],
+      permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key] || "",
+      verification_token: item.fields[PERMIT_FIELDS.verification_token] || "",
       status: item.fields[PERMIT_FIELDS.status] as PermitStatus,
       created_at: new Date(item.fields[PERMIT_FIELDS.created_at]),
       updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
@@ -261,19 +323,30 @@ export async function getExpiredPermits(): Promise<Permit[]> {
     const permits: Permit[] =
       response.data?.items?.map((item: any) => ({
         id: item.record_id || "",
-        employee_id: item.fields[PERMIT_FIELDS.employee_id],
-        employee_name: item.fields[PERMIT_FIELDS.employee_name],
-        vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id],
-        vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number],
-        vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model],
+        employee_id: item.fields[PERMIT_FIELDS.employee_id] || "",
+        employee_name: extractName(item.fields[PERMIT_FIELDS.employee_name]),
+        vehicle_id: item.fields[PERMIT_FIELDS.vehicle_id] || "",
+        vehicle_number: item.fields[PERMIT_FIELDS.vehicle_number] || "",
+        vehicle_model: item.fields[PERMIT_FIELDS.vehicle_model] || "",
         issue_date: new Date(item.fields[PERMIT_FIELDS.issue_date]),
         expiration_date: new Date(item.fields[PERMIT_FIELDS.expiration_date]),
-        permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key],
-        verification_token: item.fields[PERMIT_FIELDS.verification_token],
+        permit_file_key: item.fields[PERMIT_FIELDS.permit_file_key] || "",
+        verification_token: item.fields[PERMIT_FIELDS.verification_token] || "",
         status: item.fields[PERMIT_FIELDS.status] as PermitStatus,
         created_at: new Date(item.fields[PERMIT_FIELDS.created_at]),
         updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
       })) || [];
+
+    // employee_nameが空の場合、社員マスタから取得
+    const { getEmployee } = await import("./employee.service");
+    for (const permit of permits) {
+      if (!permit.employee_name && permit.employee_id) {
+        const employee = await getEmployee(permit.employee_id);
+        if (employee) {
+          permit.employee_name = employee.employee_name;
+        }
+      }
+    }
 
     return permits;
   } catch (error) {

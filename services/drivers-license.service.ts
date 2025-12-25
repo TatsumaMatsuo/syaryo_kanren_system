@@ -159,20 +159,44 @@ export async function rejectDriversLicense(id: string, reason: string): Promise<
  */
 export async function getExpiringDriversLicenses(): Promise<DriversLicense[]> {
   try {
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-
+    // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    // 7日後の終わり（23時59分59秒）
+    const sevenDaysLater = new Date(today);
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+    sevenDaysLater.setHours(23, 59, 59, 999);
+
+    console.log("[Expiring Licenses] Today:", today.toISOString(), today.getTime());
+    console.log("[Expiring Licenses] Seven days later:", sevenDaysLater.toISOString(), sevenDaysLater.getTime());
+
+    // approval_statusも確認（承認フローが完了しているか）
     const filter = `AND(
       CurrentValue.[deleted_flag]=false,
-      CurrentValue.[status]="approved",
+      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
       CurrentValue.[expiration_date]>=${today.getTime()},
       CurrentValue.[expiration_date]<=${sevenDaysLater.getTime()}
     )`;
 
+    console.log("[Expiring Licenses] Filter:", filter);
+
     const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
       filter,
+    });
+
+    console.log("[Expiring Licenses] Response code:", response.code, "msg:", response.msg);
+    console.log("[Expiring Licenses] Items count:", response.data?.items?.length || 0);
+
+    // 全ての免許証を取得して期限を確認（デバッグ用）
+    const allLicenses = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {});
+    console.log("[Expiring Licenses] All licenses count:", allLicenses.data?.items?.length || 0);
+    allLicenses.data?.items?.forEach((item: any, index: number) => {
+      const expDate = item.fields[DRIVERS_LICENSE_FIELDS.expiration_date];
+      const status = item.fields[DRIVERS_LICENSE_FIELDS.status];
+      const approvalStatus = item.fields[DRIVERS_LICENSE_FIELDS.approval_status];
+      const deletedFlag = item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag];
+      console.log(`[Expiring Licenses] License ${index}: expiration_date=${expDate} (${new Date(expDate).toISOString()}), status=${status}, approval_status=${approvalStatus}, deleted_flag=${deletedFlag}`);
     });
 
     const licenses: DriversLicense[] =
@@ -204,11 +228,16 @@ export async function getExpiringDriversLicenses(): Promise<DriversLicense[]> {
  */
 export async function getExpiredDriversLicenses(): Promise<DriversLicense[]> {
   try {
+    // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    console.log("[Expired Licenses] Today:", today.toISOString(), today.getTime());
+
+    // approval_statusも確認（承認フローが完了しているか）
     const filter = `AND(
       CurrentValue.[deleted_flag]=false,
-      CurrentValue.[status]="approved",
+      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
       CurrentValue.[expiration_date]<${today.getTime()}
     )`;
 

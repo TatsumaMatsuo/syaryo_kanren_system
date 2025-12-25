@@ -177,16 +177,25 @@ export async function rejectVehicleRegistration(id: string, reason: string): Pro
  */
 export async function getExpiringVehicleRegistrations(): Promise<VehicleRegistration[]> {
   try {
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-
+    // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    // 7日後の終わり（23時59分59秒）
+    const sevenDaysLater = new Date(today);
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+    sevenDaysLater.setHours(23, 59, 59, 999);
+
+    console.log("[Expiring Vehicles] Today:", today.toISOString(), today.getTime());
+    console.log("[Expiring Vehicles] Seven days later:", sevenDaysLater.toISOString(), sevenDaysLater.getTime());
+
+    // approval_statusも確認（承認フローが完了しているか）
+    // フィールド名は expiration_date（inspection_expiration_date ではない）
     const filter = `AND(
       CurrentValue.[deleted_flag]=false,
-      CurrentValue.[status]="approved",
-      CurrentValue.[inspection_expiration_date]>=${today.getTime()},
-      CurrentValue.[inspection_expiration_date]<=${sevenDaysLater.getTime()}
+      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
+      CurrentValue.[expiration_date]>=${today.getTime()},
+      CurrentValue.[expiration_date]<=${sevenDaysLater.getTime()}
     )`;
 
     const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
@@ -226,12 +235,18 @@ export async function getExpiringVehicleRegistrations(): Promise<VehicleRegistra
  */
 export async function getExpiredVehicleRegistrations(): Promise<VehicleRegistration[]> {
   try {
+    // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    console.log("[Expired Vehicles] Today:", today.toISOString(), today.getTime());
+
+    // approval_statusも確認（承認フローが完了しているか）
+    // フィールド名は expiration_date（inspection_expiration_date ではない）
     const filter = `AND(
       CurrentValue.[deleted_flag]=false,
-      CurrentValue.[status]="approved",
-      CurrentValue.[inspection_expiration_date]<${today.getTime()}
+      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
+      CurrentValue.[expiration_date]<${today.getTime()}
     )`;
 
     const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {

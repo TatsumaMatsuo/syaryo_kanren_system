@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   FileText,
   Download,
@@ -15,8 +15,16 @@ import {
   Filter,
   RefreshCw,
   Plus,
+  X,
 } from "lucide-react";
 import Link from "next/link";
+
+interface SearchEmployee {
+  employee_id: string;
+  employee_name: string;
+  email: string;
+  department: string;
+}
 
 interface Permit {
   id: string;
@@ -103,8 +111,13 @@ export default function AdminPermitsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
-  const [generateEmployeeId, setGenerateEmployeeId] = useState("");
   const [generating, setGenerating] = useState(false);
+
+  // 社員検索用のstate
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
+  const [employeeSearchResults, setEmployeeSearchResults] = useState<SearchEmployee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<SearchEmployee | null>(null);
+  const [searchingEmployees, setSearchingEmployees] = useState(false);
 
   const fetchPermits = async () => {
     try {
@@ -155,9 +168,56 @@ export default function AdminPermitsPage() {
     }
   };
 
+  // 社員検索
+  const searchEmployees = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setEmployeeSearchResults([]);
+      return;
+    }
+
+    setSearchingEmployees(true);
+    try {
+      const response = await fetch(`/api/lark/users/search?q=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      if (data.success && data.data) {
+        const employees: SearchEmployee[] = data.data.map((user: any) => ({
+          employee_id: user.user_id || user.open_id || "",
+          employee_name: user.name || "",
+          email: user.email || "",
+          department: user.department || "",
+        }));
+        setEmployeeSearchResults(employees);
+      }
+    } catch (err) {
+      console.error("社員検索エラー:", err);
+    } finally {
+      setSearchingEmployees(false);
+    }
+  }, []);
+
+  // 検索クエリが変更されたら検索実行（デバウンス）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (employeeSearchQuery) {
+        searchEmployees(employeeSearchQuery);
+      } else {
+        setEmployeeSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [employeeSearchQuery, searchEmployees]);
+
+  // モーダルを閉じる時にリセット
+  const closeGenerateModal = () => {
+    setShowGenerateModal(false);
+    setEmployeeSearchQuery("");
+    setEmployeeSearchResults([]);
+    setSelectedEmployee(null);
+  };
+
   const handleGenerateForEmployee = async () => {
-    if (!generateEmployeeId.trim()) {
-      alert("社員IDを入力してください");
+    if (!selectedEmployee) {
+      alert("社員を選択してください");
       return;
     }
 
@@ -166,14 +226,13 @@ export default function AdminPermitsPage() {
       const response = await fetch("/api/permits/generate-for-employee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employee_id: generateEmployeeId.trim() }),
+        body: JSON.stringify({ employee_id: selectedEmployee.employee_id }),
       });
       const data = await response.json();
 
       if (data.success) {
         alert(data.message);
-        setShowGenerateModal(false);
-        setGenerateEmployeeId("");
+        closeGenerateModal();
         await fetchPermits();
       } else {
         alert(data.error || "許可証の発行に失敗しました");
@@ -227,32 +286,99 @@ export default function AdminPermitsPage() {
       {/* 許可証発行モーダル */}
       {showGenerateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">許可証を発行</h2>
+          <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">許可証を発行</h2>
+              <button
+                onClick={closeGenerateModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             <p className="text-sm text-gray-600 mb-4">
               全書類（免許証・車検証・保険証）が承認済みの社員に対して許可証を発行します。
             </p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                社員ID
-              </label>
-              <input
-                type="text"
-                value={generateEmployeeId}
-                onChange={(e) => setGenerateEmployeeId(e.target.value)}
-                placeholder="例: EMP001"
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                社員マスタに登録されている社員IDを入力してください
-              </p>
-            </div>
+
+            {/* 選択中の社員 */}
+            {selectedEmployee ? (
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{selectedEmployee.employee_name}</p>
+                      <p className="text-sm text-gray-600">
+                        {selectedEmployee.employee_id} | {selectedEmployee.department || "部署未設定"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedEmployee(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* 社員検索 */
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  社員を検索
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={employeeSearchQuery}
+                    onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+                    placeholder="社員名または社員IDで検索..."
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {searchingEmployees && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
+                  )}
+                </div>
+
+                {/* 検索結果 */}
+                {employeeSearchResults.length > 0 && (
+                  <div className="mt-2 border rounded-lg max-h-48 overflow-y-auto">
+                    {employeeSearchResults.map((emp) => (
+                      <button
+                        key={emp.employee_id}
+                        onClick={() => {
+                          setSelectedEmployee(emp);
+                          setEmployeeSearchQuery("");
+                          setEmployeeSearchResults([]);
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 flex items-center gap-3"
+                      >
+                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{emp.employee_name}</p>
+                          <p className="text-xs text-gray-500">
+                            {emp.employee_id} | {emp.department || "部署未設定"}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {employeeSearchQuery && !searchingEmployees && employeeSearchResults.length === 0 && (
+                  <p className="mt-2 text-sm text-gray-500">該当する社員が見つかりません</p>
+                )}
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => {
-                  setShowGenerateModal(false);
-                  setGenerateEmployeeId("");
-                }}
+                onClick={closeGenerateModal}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 disabled={generating}
               >
@@ -260,8 +386,8 @@ export default function AdminPermitsPage() {
               </button>
               <button
                 onClick={handleGenerateForEmployee}
-                disabled={generating}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                disabled={generating || !selectedEmployee}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {generating ? (
                   <>

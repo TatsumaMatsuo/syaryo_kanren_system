@@ -45,6 +45,16 @@ export async function getBaseRecords(tableId: string, params?: {
       },
     });
 
+    // デバッグログ（承認履歴テーブル）
+    if (tableId === process.env.LARK_APPROVAL_HISTORY_TABLE_ID) {
+      console.log("[lark-client] getBaseRecords APPROVAL_HISTORY response:", {
+        code: response.code,
+        msg: response.msg,
+        total: response.data?.total,
+        itemsCount: response.data?.items?.length || 0,
+      });
+    }
+
     return response;
   } catch (error) {
     console.error("Error fetching Lark Base records:", error);

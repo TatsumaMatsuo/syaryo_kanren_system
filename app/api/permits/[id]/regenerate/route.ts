@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth-utils";
 import { getPermitById, updatePermitFileKey } from "@/services/permit.service";
 import { generatePermitPdf } from "@/services/pdf-generator.service";
+import { getEmployee } from "@/services/employee.service";
+import { getVehicleRegistrations } from "@/services/vehicle-registration.service";
 
 /**
  * POST /api/permits/[id]/regenerate
@@ -29,12 +31,33 @@ export async function POST(
       );
     }
 
+    // 社員名を取得（permitに保存されている値が不正な場合は社員マスタから取得）
+    let employeeName = permit.employee_name;
+    if (!employeeName || employeeName === "[object Object]") {
+      const employee = await getEmployee(permit.employee_id);
+      if (employee) {
+        employeeName = employee.employee_name;
+      }
+    }
+
+    // 車両情報を取得（permitに保存されている値が不正な場合は車検証から取得）
+    let vehicleNumber = permit.vehicle_number;
+    let vehicleModel = permit.vehicle_model;
+    if (!vehicleModel || vehicleModel === "null null" || vehicleModel.includes("undefined")) {
+      const vehicles = await getVehicleRegistrations(permit.employee_id);
+      const vehicle = vehicles.find(v => v.id === permit.vehicle_id) || vehicles[0];
+      if (vehicle) {
+        vehicleNumber = vehicle.vehicle_number || vehicleNumber;
+        vehicleModel = `${vehicle.manufacturer || ""} ${vehicle.model_name || ""}`.trim();
+      }
+    }
+
     // PDFを再生成
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
     const fileKey = await generatePermitPdf({
-      employeeName: permit.employee_name,
-      vehicleNumber: permit.vehicle_number,
-      vehicleModel: permit.vehicle_model,
+      employeeName: employeeName || "不明",
+      vehicleNumber: vehicleNumber || "不明",
+      vehicleModel: vehicleModel || "不明",
       issueDate: permit.issue_date,
       expirationDate: permit.expiration_date,
       permitId: permit.id,

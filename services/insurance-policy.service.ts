@@ -184,14 +184,22 @@ export async function rejectInsurancePolicy(id: string, reason: string): Promise
  */
 export async function getExpiringInsurancePolicies(): Promise<InsurancePolicy[]> {
   try {
-    const sevenDaysLater = new Date();
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-
+    // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    // 7日後の終わり（23時59分59秒）
+    const sevenDaysLater = new Date(today);
+    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
+    sevenDaysLater.setHours(23, 59, 59, 999);
+
+    console.log("[Expiring Insurance] Today:", today.toISOString(), today.getTime());
+    console.log("[Expiring Insurance] Seven days later:", sevenDaysLater.toISOString(), sevenDaysLater.getTime());
+
+    // approval_statusも確認（承認フローが完了しているか）
     const filter = `AND(
       CurrentValue.[deleted_flag]=false,
-      CurrentValue.[status]="approved",
+      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
       CurrentValue.[coverage_end_date]>=${today.getTime()},
       CurrentValue.[coverage_end_date]<=${sevenDaysLater.getTime()}
     )`;
@@ -234,11 +242,16 @@ export async function getExpiringInsurancePolicies(): Promise<InsurancePolicy[]>
  */
 export async function getExpiredInsurancePolicies(): Promise<InsurancePolicy[]> {
   try {
+    // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
+    console.log("[Expired Insurance] Today:", today.toISOString(), today.getTime());
+
+    // approval_statusも確認（承認フローが完了しているか）
     const filter = `AND(
       CurrentValue.[deleted_flag]=false,
-      CurrentValue.[status]="approved",
+      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
       CurrentValue.[coverage_end_date]<${today.getTime()}
     )`;
 

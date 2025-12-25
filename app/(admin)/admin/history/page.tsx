@@ -7,7 +7,7 @@ import { CheckCircle, XCircle, Clock, FileText, Car, Shield, Filter, Calendar } 
 import { useToast, ToastContainer } from "@/components/ui/toast";
 
 interface ApprovalHistory {
-  record_id: string;
+  id: string;
   application_type: "license" | "vehicle" | "insurance";
   application_id: string;
   employee_id: string;
@@ -264,7 +264,7 @@ export default function ApprovalHistoryPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredHistories.map((history) => (
-                    <tr key={history.record_id} className="hover:bg-gray-50">
+                    <tr key={history.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(history.timestamp).toLocaleString()}
                       </td>

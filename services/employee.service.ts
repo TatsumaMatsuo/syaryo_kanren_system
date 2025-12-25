@@ -7,6 +7,28 @@ import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
 import { Employee, EmploymentStatus } from "@/types";
 
 /**
+ * Peopleフィールドから名前を抽出
+ */
+function extractNameFromPeopleField(field: any): string {
+  if (!field) return "";
+  if (typeof field === "string") return field;
+  if (Array.isArray(field) && field[0]?.name) return field[0].name;
+  if (typeof field === "object" && field.name) return field.name;
+  return String(field);
+}
+
+/**
+ * Peopleフィールドからメールを抽出
+ */
+function extractEmailFromPeopleField(field: any): string {
+  if (!field) return "";
+  if (typeof field === "string") return field;
+  if (Array.isArray(field) && field[0]?.email) return field[0].email;
+  if (typeof field === "object" && field.email) return field.email;
+  return "";
+}
+
+/**
  * 全ての社員を取得
  */
 export async function getEmployees(
@@ -27,8 +49,8 @@ export async function getEmployees(
 
     const employees: Employee[] = response.data.items.map((item: any) => ({
       employee_id: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
-      employee_name: String(item.fields[EMPLOYEE_FIELDS.employee_name] || ""),
-      email: String(item.fields[EMPLOYEE_FIELDS.email] || ""),
+      employee_name: extractNameFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]),
+      email: extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]) || String(item.fields[EMPLOYEE_FIELDS.email] || ""),
       department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
       role: (item.fields[EMPLOYEE_FIELDS.role] || "applicant") as any,
       employment_status: (item.fields[EMPLOYEE_FIELDS.employment_status] ||
@@ -72,8 +94,8 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
     const item = response.data.items[0];
     return {
       employee_id: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
-      employee_name: String(item.fields[EMPLOYEE_FIELDS.employee_name] || ""),
-      email: String(item.fields[EMPLOYEE_FIELDS.email] || ""),
+      employee_name: extractNameFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]),
+      email: extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]) || String(item.fields[EMPLOYEE_FIELDS.email] || ""),
       department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
       role: (item.fields[EMPLOYEE_FIELDS.role] || "applicant") as any,
       employment_status: (item.fields[EMPLOYEE_FIELDS.employment_status] ||
