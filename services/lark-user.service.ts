@@ -65,18 +65,40 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
 
     console.log('DEBUG searchLarkUsers - Filtered count:', filteredUsers.length);
 
-    // LarkUser型に変換
-    const users: LarkUser[] = filteredUsers.map((item: any) => ({
-      open_id: item.fields[EMPLOYEE_FIELDS.employee_id] || item.record_id,
-      union_id: undefined,
-      user_id: item.fields[EMPLOYEE_FIELDS.employee_id],
-      name: item.fields[EMPLOYEE_FIELDS.employee_name] || "",
-      en_name: undefined,
-      email: item.fields[EMPLOYEE_FIELDS.email] || "",
-      mobile: undefined,
-      avatar: undefined,
-      department_ids: item.fields[EMPLOYEE_FIELDS.department] ? [item.fields[EMPLOYEE_FIELDS.department]] : undefined,
-    }));
+    // LarkUser型に変換（Peopleフィールドから文字列を抽出）
+    const users: LarkUser[] = filteredUsers.map((item: any) => {
+      // 社員名の抽出（Peopleフィールド対応）
+      const nameField = item.fields[EMPLOYEE_FIELDS.employee_name];
+      let extractedName = "";
+      if (typeof nameField === "string") {
+        extractedName = nameField;
+      } else if (Array.isArray(nameField) && nameField[0]?.name) {
+        extractedName = nameField[0].name || "";
+      } else if (nameField && typeof nameField === "object" && nameField.name) {
+        extractedName = nameField.name || "";
+      }
+
+      // メールの抽出（Peopleフィールドまたは直接フィールド）
+      const emailField = item.fields[EMPLOYEE_FIELDS.email];
+      let extractedEmail = "";
+      if (typeof emailField === "string") {
+        extractedEmail = emailField;
+      } else if (Array.isArray(nameField) && nameField[0]?.email) {
+        extractedEmail = nameField[0].email || "";
+      }
+
+      return {
+        open_id: item.fields[EMPLOYEE_FIELDS.employee_id] || item.record_id,
+        union_id: undefined,
+        user_id: item.fields[EMPLOYEE_FIELDS.employee_id],
+        name: extractedName,
+        en_name: undefined,
+        email: extractedEmail,
+        mobile: undefined,
+        avatar: undefined,
+        department_ids: item.fields[EMPLOYEE_FIELDS.department] ? [item.fields[EMPLOYEE_FIELDS.department]] : undefined,
+      };
+    });
 
     console.log('DEBUG searchLarkUsers - Returning users:', users.length);
 
