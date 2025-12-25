@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   FileText,
   Car,
@@ -12,11 +12,15 @@ import {
   XCircle,
   Search,
   Plus,
-  Award,
   UserPlus,
-  ArrowLeft,
   User,
+  RefreshCw,
+  X,
 } from "lucide-react";
+import { DriversLicenseForm } from "@/components/forms/drivers-license-form";
+import { VehicleRegistrationForm } from "@/components/forms/vehicle-registration-form";
+import { InsurancePolicyForm } from "@/components/forms/insurance-policy-form";
+import { DriversLicenseFormData, VehicleRegistrationFormData, InsurancePolicyFormData } from "@/lib/validations/application";
 
 interface Employee {
   employee_id: string;
@@ -43,8 +47,11 @@ interface StatusSummary {
   rejected: number;
 }
 
-export default function ProxyApplicationPage() {
+type FormType = "license" | "vehicle" | "insurance" | null;
+
+function ProxyApplicationContent() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Employee[]>([]);
@@ -55,6 +62,50 @@ export default function ProxyApplicationPage() {
     insurances: [],
   });
   const [loading, setLoading] = useState(false);
+  const [activeForm, setActiveForm] = useState<FormType>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // URLパラメータから社員情報を復元
+  useEffect(() => {
+    const empId = searchParams.get("employee_id");
+    const empName = searchParams.get("employee_name");
+    if (empId && empName && !selectedEmployee) {
+      setSelectedEmployee({
+        employee_id: empId,
+        employee_name: decodeURIComponent(empName),
+      });
+    }
+  }, [searchParams, selectedEmployee]);
+
+  // 書類データを取得
+  const fetchDocuments = useCallback(async () => {
+    if (!selectedEmployee) return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/my-documents?employee_id=${selectedEmployee.employee_id}`);
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        setDocuments({
+          license: data.data.license || null,
+          vehicles: data.data.vehicles || [],
+          insurances: data.data.insurances || [],
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch documents:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedEmployee]);
+
+  // 社員選択時に書類データを取得
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   // 社員検索
   const handleSearch = async () => {
@@ -69,7 +120,6 @@ export default function ProxyApplicationPage() {
       const data = await response.json();
 
       if (data.success) {
-        // LarkUser を Employee に変換
         const employees: Employee[] = data.data.map((user: any) => ({
           employee_id: user.user_id || user.open_id,
           employee_name: user.name,
@@ -91,32 +141,153 @@ export default function ProxyApplicationPage() {
     }
   };
 
-  // 社員選択時に書類データを取得
-  useEffect(() => {
+  // 免許証申請送信
+  const handleLicenseSubmit = async (data: DriversLicenseFormData) => {
     if (!selectedEmployee) return;
 
-    const fetchDocuments = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/my-documents?employee_id=${selectedEmployee.employee_id}`);
-        const data = await response.json();
+    setFormLoading(true);
+    setFormError(null);
 
-        if (data.success && data.data) {
-          setDocuments({
-            license: data.data.license || null,
-            vehicles: data.data.vehicles || [],
-            insurances: data.data.insurances || [],
-          });
-        }
-      } catch (error) {
-        console.error("Failed to fetch documents:", error);
-      } finally {
-        setLoading(false);
+    try {
+      let fileKey = "";
+      if (data.image_file) {
+        const formData = new FormData();
+        formData.append("file", data.image_file);
+        const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+        if (!uploadResponse.ok) throw new Error("ファイルのアップロードに失敗しました");
+        const uploadResult = await uploadResponse.json();
+        fileKey = uploadResult.file_key;
       }
-    };
 
-    fetchDocuments();
-  }, [selectedEmployee]);
+      const response = await fetch("/api/applications/licenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: selectedEmployee.employee_id,
+          license_number: data.license_number,
+          license_type: data.license_type,
+          issue_date: data.issue_date.toISOString(),
+          expiration_date: data.expiration_date.toISOString(),
+          image_url: fileKey,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "申請の送信に失敗しました");
+      }
+
+      setActiveForm(null);
+      setSuccessMessage("免許証を登録しました");
+      await fetchDocuments();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // 車検証申請送信
+  const handleVehicleSubmit = async (data: VehicleRegistrationFormData) => {
+    if (!selectedEmployee) return;
+
+    setFormLoading(true);
+    setFormError(null);
+
+    try {
+      let fileKey = "";
+      if (data.image_file) {
+        const formData = new FormData();
+        formData.append("file", data.image_file);
+        const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+        if (!uploadResponse.ok) throw new Error("ファイルのアップロードに失敗しました");
+        const uploadResult = await uploadResponse.json();
+        fileKey = uploadResult.file_key;
+      }
+
+      const response = await fetch("/api/applications/vehicles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: selectedEmployee.employee_id,
+          vehicle_number: data.vehicle_number,
+          vehicle_type: data.vehicle_type,
+          manufacturer: data.manufacturer,
+          model_name: data.model_name,
+          inspection_expiration_date: data.inspection_expiration_date.toISOString(),
+          owner_name: data.owner_name,
+          image_url: fileKey,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "申請の送信に失敗しました");
+      }
+
+      setActiveForm(null);
+      setSuccessMessage("車検証を登録しました");
+      await fetchDocuments();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  // 保険証申請送信
+  const handleInsuranceSubmit = async (data: InsurancePolicyFormData) => {
+    if (!selectedEmployee) return;
+
+    setFormLoading(true);
+    setFormError(null);
+
+    try {
+      let fileKey = "";
+      if (data.image_file) {
+        const formData = new FormData();
+        formData.append("file", data.image_file);
+        const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+        if (!uploadResponse.ok) throw new Error("ファイルのアップロードに失敗しました");
+        const uploadResult = await uploadResponse.json();
+        fileKey = uploadResult.file_key;
+      }
+
+      const response = await fetch("/api/applications/insurance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employee_id: selectedEmployee.employee_id,
+          policy_number: data.policy_number,
+          insurance_company: data.insurance_company,
+          policy_type: data.policy_type,
+          coverage_start_date: data.coverage_start_date.toISOString(),
+          coverage_end_date: data.coverage_end_date.toISOString(),
+          insured_amount: data.insured_amount,
+          liability_personal_unlimited: data.liability_personal_unlimited,
+          liability_property_amount: data.liability_property_amount,
+          passenger_injury_amount: data.passenger_injury_amount,
+          image_url: fileKey,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "申請の送信に失敗しました");
+      }
+
+      setActiveForm(null);
+      setSuccessMessage("任意保険証を登録しました");
+      await fetchDocuments();
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "エラーが発生しました");
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   // ステータス集計
   const getStatusSummary = (docs: DocumentData[]): StatusSummary => {
@@ -133,7 +304,6 @@ export default function ProxyApplicationPage() {
     );
   };
 
-  // 単一ドキュメントのステータスバッジ
   const getStatusBadge = (status: string | undefined, submitted: boolean) => {
     if (!submitted) {
       return (
@@ -171,7 +341,6 @@ export default function ProxyApplicationPage() {
     }
   };
 
-  // 複数ドキュメントのサマリーバッジ
   const getMultiStatusBadge = (summary: StatusSummary) => {
     if (summary.total === 0) {
       return (
@@ -222,7 +391,6 @@ export default function ProxyApplicationPage() {
           </p>
         </div>
 
-        {/* 社員検索 */}
         <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">社員を検索</h2>
 
@@ -244,7 +412,6 @@ export default function ProxyApplicationPage() {
             </button>
           </div>
 
-          {/* 検索結果 */}
           {searchResults.length > 0 && (
             <div className="border rounded-lg divide-y max-h-80 overflow-y-auto">
               {searchResults.map((employee) => (
@@ -280,6 +447,72 @@ export default function ProxyApplicationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* 成功メッセージ */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
+          {successMessage}
+        </div>
+      )}
+
+      {/* フォームモーダル */}
+      {activeForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {activeForm === "license" && "免許証申請（代理）"}
+                  {activeForm === "vehicle" && "車検証申請（代理）"}
+                  {activeForm === "insurance" && "任意保険証申請（代理）"}
+                </h2>
+                <div className="flex items-center gap-2 text-sm mt-1">
+                  <User className="w-4 h-4 text-cyan-600" />
+                  <span className="text-cyan-700 font-medium">{selectedEmployee.employee_name}</span>
+                  <span className="text-gray-500">（ID: {selectedEmployee.employee_id}）</span>
+                </div>
+              </div>
+              <button
+                onClick={() => { setActiveForm(null); setFormError(null); }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {/* 代理申請の注意書き */}
+              <div className="mb-6 bg-cyan-50 border-l-4 border-cyan-400 p-4 rounded">
+                <div className="flex">
+                  <UserPlus className="h-5 w-5 text-cyan-600 flex-shrink-0" />
+                  <div className="ml-3">
+                    <p className="text-sm text-cyan-800">
+                      <strong>{selectedEmployee.employee_name}</strong> さんの代理として申請を行っています。
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {formError && (
+                <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4 rounded">
+                  <p className="text-sm text-red-700">{formError}</p>
+                </div>
+              )}
+
+              {activeForm === "license" && (
+                <DriversLicenseForm onSubmit={handleLicenseSubmit} isLoading={formLoading} />
+              )}
+              {activeForm === "vehicle" && (
+                <VehicleRegistrationForm onSubmit={handleVehicleSubmit} isLoading={formLoading} />
+              )}
+              {activeForm === "insurance" && (
+                <InsurancePolicyForm onSubmit={handleInsuranceSubmit} isLoading={formLoading} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ヘッダー */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -289,8 +522,7 @@ export default function ProxyApplicationPage() {
                 onClick={() => setSelectedEmployee(null)}
                 className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2"
               >
-                <ArrowLeft className="w-4 h-4" />
-                社員選択に戻る
+                ← 社員選択に戻る
               </button>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
                 <UserPlus className="w-7 h-7 text-cyan-600" />
@@ -306,15 +538,14 @@ export default function ProxyApplicationPage() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Link
-                href={`/admin/proxy/permits?employee_id=${selectedEmployee.employee_id}`}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Award className="w-4 h-4 mr-2" />
-                許可証
-              </Link>
-            </div>
+            <button
+              onClick={fetchDocuments}
+              disabled={loading}
+              className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              更新
+            </button>
           </div>
         </div>
       </header>
@@ -330,22 +561,25 @@ export default function ProxyApplicationPage() {
             {/* 申請カード */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* 免許証（1:1） */}
-              <Link href={`/admin/proxy/license/new?employee_id=${selectedEmployee.employee_id}&employee_name=${encodeURIComponent(selectedEmployee.employee_name)}`}>
-                <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <FileText className="h-12 w-12 text-blue-600" />
-                    {getStatusBadge(documents.license?.approval_status, !!documents.license)}
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">免許証</h3>
-                  <p className="text-xs text-gray-500 mb-2">1件まで登録可能</p>
-                  <p className="text-sm text-gray-600">
-                    運転免許証の情報を登録してください
-                  </p>
-                  <div className="mt-4 text-blue-600 text-sm font-medium">
-                    {documents.license ? "詳細を見る →" : "申請する →"}
-                  </div>
+              <div
+                onClick={() => !documents.license && setActiveForm("license")}
+                className={`bg-white rounded-lg shadow p-6 ${!documents.license ? "hover:shadow-lg cursor-pointer" : ""} transition-shadow`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <FileText className="h-12 w-12 text-blue-600" />
+                  {getStatusBadge(documents.license?.approval_status, !!documents.license)}
                 </div>
-              </Link>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">免許証</h3>
+                <p className="text-xs text-gray-500 mb-2">1件まで登録可能</p>
+                <p className="text-sm text-gray-600">
+                  運転免許証の情報を登録してください
+                </p>
+                {!documents.license && (
+                  <div className="mt-4 text-blue-600 text-sm font-medium">
+                    申請する →
+                  </div>
+                )}
+              </div>
 
               {/* 車検証（1:多） */}
               <div className="bg-white rounded-lg shadow p-6">
@@ -382,15 +616,13 @@ export default function ProxyApplicationPage() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <Link
-                    href={`/admin/proxy/vehicle/new?employee_id=${selectedEmployee.employee_id}&employee_name=${encodeURIComponent(selectedEmployee.employee_name)}`}
-                    className="flex-1 flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    追加
-                  </Link>
-                </div>
+                <button
+                  onClick={() => setActiveForm("vehicle")}
+                  className="w-full flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  追加
+                </button>
               </div>
 
               {/* 任意保険（1:多） */}
@@ -428,15 +660,13 @@ export default function ProxyApplicationPage() {
                   </div>
                 )}
 
-                <div className="flex gap-2">
-                  <Link
-                    href={`/admin/proxy/insurance/new?employee_id=${selectedEmployee.employee_id}&employee_name=${encodeURIComponent(selectedEmployee.employee_name)}`}
-                    className="flex-1 flex items-center justify-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    追加
-                  </Link>
-                </div>
+                <button
+                  onClick={() => setActiveForm("insurance")}
+                  className="w-full flex items-center justify-center px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  追加
+                </button>
               </div>
             </div>
 
@@ -458,5 +688,17 @@ export default function ProxyApplicationPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function ProxyApplicationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+      </div>
+    }>
+      <ProxyApplicationContent />
+    </Suspense>
   );
 }
