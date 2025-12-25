@@ -51,15 +51,23 @@ export async function getUserPermissions(): Promise<UserPermission[]> {
 
 /**
  * 特定ユーザーの権限を取得
- * @param larkUserId LarkユーザーのOpen ID
+ * @param userIdentifier LarkユーザーのOpen IDまたはメールアドレス
  */
 export async function getUserPermission(
-  larkUserId: string
+  userIdentifier: string
 ): Promise<UserPermission | null> {
   try {
-    const response = await getBaseRecords(LARK_TABLES.USER_PERMISSIONS, {
-      filter: `CurrentValue.[${USER_PERMISSION_FIELDS.lark_user_id}] = "${larkUserId}"`,
+    // まずopen_idで検索
+    let response = await getBaseRecords(LARK_TABLES.USER_PERMISSIONS, {
+      filter: `CurrentValue.[${USER_PERMISSION_FIELDS.lark_user_id}] = "${userIdentifier}"`,
     });
+
+    // open_idで見つからない場合はメールアドレスで検索
+    if (!response.data?.items || response.data.items.length === 0) {
+      response = await getBaseRecords(LARK_TABLES.USER_PERMISSIONS, {
+        filter: `CurrentValue.[${USER_PERMISSION_FIELDS.user_email}] = "${userIdentifier}"`,
+      });
+    }
 
     if (!response.data?.items || response.data.items.length === 0) {
       return null;

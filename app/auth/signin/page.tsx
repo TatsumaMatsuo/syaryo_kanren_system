@@ -9,7 +9,8 @@ import { Car, Shield, Loader2 } from "lucide-react";
 
 function SignInContent() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  // ログイン後はホームページで管理者判定を行う
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const error = searchParams.get("error");
 
   const handleSignIn = async () => {
