@@ -223,7 +223,7 @@ export default function AdminPermitsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 sm:p-8 space-y-6">
       {/* 許可証発行モーダル */}
       {showGenerateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
