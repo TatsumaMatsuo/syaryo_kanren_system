@@ -2,11 +2,12 @@
 
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 
-export default function AuthErrorPage() {
+function AuthErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
@@ -83,58 +84,76 @@ export default function AuthErrorPage() {
   const errorInfo = getErrorMessage(error);
 
   return (
+    <Card className="shadow-xl">
+      <CardHeader className="space-y-1 text-center">
+        <div className="flex justify-center mb-4">
+          <div className="bg-red-600 p-3 rounded-full">
+            <AlertCircle className="h-8 w-8 text-white" />
+          </div>
+        </div>
+        <CardTitle className="text-2xl font-bold text-red-900">
+          {errorInfo.title}
+        </CardTitle>
+        <CardDescription className="text-base">
+          {errorInfo.description}
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {error && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-600 font-mono">
+              エラーコード: {error}
+            </p>
+          </div>
+        )}
+
+        <div className="text-sm text-gray-700 space-y-2">
+          <p className="font-semibold">解決方法:</p>
+          <ul className="list-disc list-inside space-y-1 ml-2">
+            <li>もう一度ログインを試してください</li>
+            <li>ブラウザのキャッシュをクリアしてください</li>
+            <li>問題が解決しない場合は、システム管理者に連絡してください</li>
+          </ul>
+        </div>
+      </CardContent>
+
+      <CardFooter className="flex gap-2">
+        <Button
+          asChild
+          className="flex-1"
+          variant="outline"
+        >
+          <Link href="/">ホームに戻る</Link>
+        </Button>
+        <Button
+          asChild
+          className="flex-1 bg-blue-600 hover:bg-blue-700"
+        >
+          <Link href="/auth/signin">再度ログイン</Link>
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <Card className="shadow-xl">
+      <CardContent className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-100">
       <div className="w-full max-w-md px-4">
-        <Card className="shadow-xl">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex justify-center mb-4">
-              <div className="bg-red-600 p-3 rounded-full">
-                <AlertCircle className="h-8 w-8 text-white" />
-              </div>
-            </div>
-            <CardTitle className="text-2xl font-bold text-red-900">
-              {errorInfo.title}
-            </CardTitle>
-            <CardDescription className="text-base">
-              {errorInfo.description}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <p className="text-xs text-gray-600 font-mono">
-                  エラーコード: {error}
-                </p>
-              </div>
-            )}
-
-            <div className="text-sm text-gray-700 space-y-2">
-              <p className="font-semibold">解決方法:</p>
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>もう一度ログインを試してください</li>
-                <li>ブラウザのキャッシュをクリアしてください</li>
-                <li>問題が解決しない場合は、システム管理者に連絡してください</li>
-              </ul>
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex gap-2">
-            <Button
-              asChild
-              className="flex-1"
-              variant="outline"
-            >
-              <Link href="/">ホームに戻る</Link>
-            </Button>
-            <Button
-              asChild
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
-            >
-              <Link href="/auth/signin">再度ログイン</Link>
-            </Button>
-          </CardFooter>
-        </Card>
+        <Suspense fallback={<LoadingFallback />}>
+          <AuthErrorContent />
+        </Suspense>
 
         <div className="mt-6 text-center text-sm text-gray-600">
           <p>サポートが必要な場合は、システム管理者にお問い合わせください</p>

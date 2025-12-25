@@ -52,11 +52,18 @@ async function checkEmployees() {
     const employees = response.data?.items || [];
     console.log(`  総件数: ${employees.length}\n`);
 
+    // 新しいフィールド名
+    const EMPLOYEE_FIELD_NAMES = {
+      employee_id: "社員コード",
+      employee_name: "社員名 (メンバー )",
+      email: "社員名 (メンバー ).仕事用メールアドレス",
+      department: "社員名 (メンバー ).部署",
+    };
+
     employees.forEach((emp: any, index: number) => {
-      console.log(`${index + 1}. ${emp.fields.name} (${emp.fields.employee_id})`);
-      console.log(`   部署: ${emp.fields.department}`);
-      console.log(`   メール: ${emp.fields.email}`);
-      console.log(`   入社日: ${emp.fields.hire_date ? new Date(emp.fields.hire_date).toLocaleDateString('ja-JP') : '未設定'}`);
+      console.log(`${index + 1}. ${emp.fields[EMPLOYEE_FIELD_NAMES.employee_name]} (${emp.fields[EMPLOYEE_FIELD_NAMES.employee_id]})`);
+      console.log(`   部署: ${emp.fields[EMPLOYEE_FIELD_NAMES.department]}`);
+      console.log(`   メール: ${emp.fields[EMPLOYEE_FIELD_NAMES.email]}`);
       console.log(`   record_id: ${emp.record_id}`);
       console.log(`   全フィールド:`, JSON.stringify(emp.fields, null, 2));
       console.log("");

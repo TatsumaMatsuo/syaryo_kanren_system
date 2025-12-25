@@ -206,7 +206,7 @@ export default function EmployeesPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {new Date(employee.hire_date).toLocaleDateString()}
+                        {employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : "-"}
                       </div>
                       {employee.resignation_date && (
                         <div className="text-sm text-gray-500">

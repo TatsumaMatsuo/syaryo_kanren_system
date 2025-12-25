@@ -2,13 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Settings, Save, FileText, Car, Shield, Bell } from "lucide-react";
+import { Settings, Save, FileText, Car, Shield, Bell, Building2 } from "lucide-react";
 
 interface SystemSettings {
   license_expiry_warning_days: number;
   vehicle_expiry_warning_days: number;
   insurance_expiry_warning_days: number;
   admin_notification_after_days: number;
+  company_name: string;
+  company_postal_code: string;
+  company_address: string;
+  issuing_department: string;
 }
 
 export default function SystemSettingsPage() {
@@ -18,6 +22,10 @@ export default function SystemSettingsPage() {
     vehicle_expiry_warning_days: 30,
     insurance_expiry_warning_days: 30,
     admin_notification_after_days: 7,
+    company_name: "",
+    company_postal_code: "",
+    company_address: "",
+    issuing_department: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,7 +60,6 @@ export default function SystemSettingsPage() {
       const data = await response.json();
 
       if (data.success && data.data) {
-        // 現在のユーザーのメールアドレスで権限を確認
         const userEmail = session.user.email;
         const userPermission = data.data.find(
           (p: any) => p.user_email === userEmail
@@ -91,7 +98,12 @@ export default function SystemSettingsPage() {
     }
   };
 
-  const handleChange = (key: keyof SystemSettings, value: number) => {
+  const handleNumberChange = (key: keyof SystemSettings, value: number) => {
+    if (!isAdmin) return;
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleTextChange = (key: keyof SystemSettings, value: string) => {
     if (!isAdmin) return;
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
@@ -114,7 +126,7 @@ export default function SystemSettingsPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">システム設定</h1>
           <p className="mt-1 text-sm text-gray-600">
-            有効期限通知と管理者通知の設定を管理します
+            通知設定と会社情報を管理します
           </p>
         </div>
         {isAdmin && (
@@ -138,6 +150,88 @@ export default function SystemSettingsPage() {
       )}
 
       <div className="space-y-6">
+        {/* 会社情報設定 */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center space-x-2 mb-6">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-900">
+              会社情報（許可証PDF用）
+            </h2>
+          </div>
+
+          <p className="text-sm text-gray-600 mb-6">
+            許可証PDFに印字される発行元情報を設定します
+          </p>
+
+          <div className="space-y-4">
+            {/* 会社名 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                会社名
+              </label>
+              <input
+                type="text"
+                value={settings.company_name}
+                onChange={(e) => handleTextChange("company_name", e.target.value)}
+                disabled={!isAdmin}
+                placeholder="例: 株式会社サンプル"
+                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
+              />
+            </div>
+
+            {/* 郵便番号 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                郵便番号
+              </label>
+              <input
+                type="text"
+                value={settings.company_postal_code}
+                onChange={(e) => handleTextChange("company_postal_code", e.target.value)}
+                disabled={!isAdmin}
+                placeholder="例: 123-4567"
+                className="w-full sm:w-48 border rounded-lg px-3 py-2 disabled:bg-gray-100"
+              />
+            </div>
+
+            {/* 住所 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                住所
+              </label>
+              <input
+                type="text"
+                value={settings.company_address}
+                onChange={(e) => handleTextChange("company_address", e.target.value)}
+                disabled={!isAdmin}
+                placeholder="例: 東京都千代田区丸の内1-1-1"
+                className="w-full border rounded-lg px-3 py-2 disabled:bg-gray-100"
+              />
+            </div>
+
+            {/* 発行部署 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                発行部署
+              </label>
+              <input
+                type="text"
+                value={settings.issuing_department}
+                onChange={(e) => handleTextChange("issuing_department", e.target.value)}
+                disabled={!isAdmin}
+                placeholder="例: 総務部"
+                className="w-full sm:w-64 border rounded-lg px-3 py-2 disabled:bg-gray-100"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              これらの情報は許可証PDFのフッター部分に印字されます。
+            </p>
+          </div>
+        </div>
+
         {/* 有効期限警告設定 */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center space-x-2 mb-6">
@@ -171,7 +265,7 @@ export default function SystemSettingsPage() {
                     max="365"
                     value={settings.license_expiry_warning_days}
                     onChange={(e) =>
-                      handleChange(
+                      handleNumberChange(
                         "license_expiry_warning_days",
                         parseInt(e.target.value, 10)
                       )
@@ -203,7 +297,7 @@ export default function SystemSettingsPage() {
                     max="365"
                     value={settings.vehicle_expiry_warning_days}
                     onChange={(e) =>
-                      handleChange(
+                      handleNumberChange(
                         "vehicle_expiry_warning_days",
                         parseInt(e.target.value, 10)
                       )
@@ -235,7 +329,7 @@ export default function SystemSettingsPage() {
                     max="365"
                     value={settings.insurance_expiry_warning_days}
                     onChange={(e) =>
-                      handleChange(
+                      handleNumberChange(
                         "insurance_expiry_warning_days",
                         parseInt(e.target.value, 10)
                       )
@@ -281,7 +375,7 @@ export default function SystemSettingsPage() {
                   max="365"
                   value={settings.admin_notification_after_days}
                   onChange={(e) =>
-                    handleChange(
+                    handleNumberChange(
                       "admin_notification_after_days",
                       parseInt(e.target.value, 10)
                     )
@@ -293,18 +387,13 @@ export default function SystemSettingsPage() {
               </div>
             </div>
           </div>
-
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-800">
-              <strong>例:</strong> 7日後に設定すると、有効期限が切れてから7日経過した時点で管理者に通知が送信されます。
-            </p>
-          </div>
         </div>
 
         {/* 設定の説明 */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
           <h3 className="font-medium text-gray-900 mb-3">設定について</h3>
           <ul className="space-y-2 text-sm text-gray-600">
+            <li>• 会社情報は許可証PDFに発行元として印字されます</li>
             <li>• ユーザーへの警告通知は、設定した日数前に自動的に送信されます</li>
             <li>
               • 管理者通知は、有効期限切れ後の設定日数経過時にエスカレーションとして送信されます

@@ -13,7 +13,7 @@ import {
 } from "@/services/insurance-policy.service";
 import { requireAdmin, getCurrentUser } from "@/lib/auth-utils";
 import { getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
 import { recordApprovalHistory } from "@/services/approval-history.service";
 
 /**
@@ -85,11 +85,11 @@ export async function POST(
       if (applicationRecord.employee_id) {
         try {
           const employeesResponse = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
-            filter: `CurrentValue.[employee_id]="${applicationRecord.employee_id}"`,
+            filter: `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${applicationRecord.employee_id}"`,
           });
           const employee = employeesResponse.data?.items?.[0];
           if (employee) {
-            employeeName = employee.fields.name || employee.fields.employee_name || "不明";
+            employeeName = String(employee.fields[EMPLOYEE_FIELDS.employee_name] || "不明");
           }
         } catch (error) {
           console.error("Failed to get employee name:", error);

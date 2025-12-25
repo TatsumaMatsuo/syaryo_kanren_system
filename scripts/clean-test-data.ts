@@ -50,6 +50,9 @@ async function cleanTestData() {
     let deletedCount = 0;
 
     for (const record of records) {
+      if (!record.record_id) {
+        continue;
+      }
       try {
         await larkClient.bitable.appTableRecord.delete({
           path: {

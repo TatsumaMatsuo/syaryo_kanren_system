@@ -27,7 +27,7 @@ export function getLarkClient() {
  */
 export async function getBaseRecords(tableId: string, params?: {
   filter?: string;
-  sort?: string[];
+  sort?: Array<string | { field_name: string; desc?: boolean }>;
   pageSize?: number;
   pageToken?: string;
 }) {
@@ -190,19 +190,19 @@ export async function uploadFileToLark(
   try {
     const response = await larkClient.im.file.create({
       data: {
-        file_type: fileType,
+        file_type: fileType as "opus" | "mp4" | "pdf" | "doc" | "xls" | "ppt" | "stream",
         file_name: filename,
         file: fileBuffer,
       },
     });
 
-    if (!response.success) {
+    if (!response || !response.file_key) {
       throw new Error("Lark file upload failed");
     }
 
     return {
       success: true,
-      file_key: response.data?.file_key,
+      file_key: response.file_key,
     };
   } catch (error) {
     console.error("Error uploading file to Lark:", error);
@@ -223,11 +223,11 @@ export async function downloadFileFromLark(fileKey: string) {
       },
     });
 
-    if (!response.success) {
+    if (!response) {
       throw new Error("Lark file download failed");
     }
 
-    return response.data;
+    return response;
   } catch (error) {
     console.error("Error downloading file from Lark:", error);
     throw error;

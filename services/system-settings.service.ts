@@ -6,10 +6,16 @@ import {
 import { LARK_TABLES, SYSTEM_SETTINGS_FIELDS } from "@/lib/lark-tables";
 
 export interface SystemSettings {
+  // 通知設定
   license_expiry_warning_days: number;
   vehicle_expiry_warning_days: number;
   insurance_expiry_warning_days: number;
   admin_notification_after_days: number;
+  // 会社情報（許可証PDF用）
+  company_name: string;
+  company_postal_code: string;
+  company_address: string;
+  issuing_department: string;
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -17,7 +23,19 @@ const DEFAULT_SETTINGS: SystemSettings = {
   vehicle_expiry_warning_days: 30,
   insurance_expiry_warning_days: 30,
   admin_notification_after_days: 7,
+  company_name: "",
+  company_postal_code: "",
+  company_address: "",
+  issuing_department: "",
 };
+
+// 数値型のキー
+const NUMERIC_KEYS = [
+  "license_expiry_warning_days",
+  "vehicle_expiry_warning_days",
+  "insurance_expiry_warning_days",
+  "admin_notification_after_days",
+];
 
 /**
  * システム設定を取得
@@ -36,10 +54,14 @@ export async function getSystemSettings(): Promise<SystemSettings> {
       const key = item.fields[SYSTEM_SETTINGS_FIELDS.setting_key];
       const value = item.fields[SYSTEM_SETTINGS_FIELDS.setting_value];
 
-      if (key && value) {
-        const numValue = parseInt(value, 10);
-        if (!isNaN(numValue)) {
-          (settings as any)[key] = numValue;
+      if (key && value !== undefined && key in settings) {
+        if (NUMERIC_KEYS.includes(key)) {
+          const numValue = parseInt(value, 10);
+          if (!isNaN(numValue)) {
+            (settings as any)[key] = numValue;
+          }
+        } else {
+          (settings as any)[key] = String(value);
         }
       }
     });
@@ -52,10 +74,28 @@ export async function getSystemSettings(): Promise<SystemSettings> {
 }
 
 /**
+ * 会社情報のみ取得（PDF生成用）
+ */
+export async function getCompanyInfo(): Promise<{
+  company_name: string;
+  company_postal_code: string;
+  company_address: string;
+  issuing_department: string;
+}> {
+  const settings = await getSystemSettings();
+  return {
+    company_name: settings.company_name,
+    company_postal_code: settings.company_postal_code,
+    company_address: settings.company_address,
+    issuing_department: settings.issuing_department,
+  };
+}
+
+/**
  * システム設定を更新
  */
 export async function updateSystemSettings(
-  settings: SystemSettings,
+  settings: Partial<SystemSettings>,
   updatedBy: string
 ): Promise<void> {
   try {
@@ -76,6 +116,8 @@ export async function updateSystemSettings(
 
     // 各設定を更新または作成
     for (const [key, value] of Object.entries(settings)) {
+      if (value === undefined) continue;
+
       const recordId = existingSettings.get(key);
 
       if (recordId) {

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Car, Shield, CheckCircle, Clock, XCircle, Search, Plus } from "lucide-react";
+import { FileText, Car, Shield, CheckCircle, Clock, XCircle, Search, Plus, Award } from "lucide-react";
 
 interface DocumentData {
   id?: string;
@@ -201,13 +201,22 @@ export default function Dashboard() {
                 {user.name}さん（社員ID: {user.employee_id}）
               </p>
             </div>
-            <Link
-              href="/dashboard/documents"
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              承認済書類照会
-            </Link>
+            <div className="flex gap-2">
+              <Link
+                href="/dashboard/permits"
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Award className="w-4 h-4 mr-2" />
+                許可証
+              </Link>
+              <Link
+                href="/dashboard/documents"
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Search className="w-4 h-4 mr-2" />
+                承認済書類照会
+              </Link>
+            </div>
           </div>
         </div>
       </header>

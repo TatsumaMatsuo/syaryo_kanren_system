@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Document, Page, pdfjs } from "react-pdf";
+import { useState, useCallback, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,9 +10,18 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 
-// PDF.js Worker設定
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// react-pdfを動的インポート（SSR無効化）
+const Document = dynamic(
+  () => import("react-pdf").then((mod) => mod.Document),
+  { ssr: false }
+);
+
+const Page = dynamic(
+  () => import("react-pdf").then((mod) => mod.Page),
+  { ssr: false }
+);
 
 interface PDFViewerProps {
   fileUrl: string;
@@ -26,6 +34,15 @@ export function PDFViewer({ fileUrl, title = "PDF" }: PDFViewerProps) {
   const [scale, setScale] = useState<number>(1.0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // クライアントサイドでのみpdfjs workerを設定
+  useEffect(() => {
+    setIsClient(true);
+    import("react-pdf").then((reactPdf) => {
+      reactPdf.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${reactPdf.pdfjs.version}/build/pdf.worker.min.mjs`;
+    });
+  }, []);
 
   const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -58,6 +75,17 @@ export function PDFViewer({ fileUrl, title = "PDF" }: PDFViewerProps) {
   const resetZoom = () => {
     setScale(1.0);
   };
+
+  if (!isClient) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-900">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin mx-auto" />
+          <p className="text-white mt-2">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (

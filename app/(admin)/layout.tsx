@@ -12,7 +12,8 @@ import {
   LogOut,
   Menu,
   X,
-  Search
+  Search,
+  BadgeCheck,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -38,6 +39,12 @@ export default function AdminLayout({
       href: "/admin/search",
       icon: Search,
       color: "text-emerald-600",
+    },
+    {
+      name: "発行済み許可証",
+      href: "/admin/permits",
+      icon: BadgeCheck,
+      color: "text-teal-600",
     },
     {
       name: "承認履歴",

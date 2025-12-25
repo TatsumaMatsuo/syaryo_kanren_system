@@ -1,5 +1,5 @@
 import { larkClient, getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
 import { LarkUser } from "@/types";
 
 /**
@@ -32,10 +32,10 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
     // クエリでフィルタリング
     const queryLower = query.toLowerCase();
     const filteredUsers = response.data.items.filter((item: any) => {
-      // nameとemployee_nameの両方をチェック
-      const name = (item.fields.name || item.fields.employee_name || "").toLowerCase();
-      const email = (item.fields.email || "").toLowerCase();
-      const employeeId = (item.fields.employee_id || "").toLowerCase();
+      // フィールド名で取得
+      const name = (item.fields[EMPLOYEE_FIELDS.employee_name] || "").toLowerCase();
+      const email = (item.fields[EMPLOYEE_FIELDS.email] || "").toLowerCase();
+      const employeeId = (item.fields[EMPLOYEE_FIELDS.employee_id] || "").toLowerCase();
 
       const matches = (
         name.includes(queryLower) ||
@@ -43,7 +43,7 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
         employeeId.includes(queryLower)
       );
 
-      console.log(`DEBUG - Employee ${item.fields.employee_id}: ${item.fields.name || item.fields.employee_name} - matches: ${matches}`);
+      console.log(`DEBUG - Employee ${item.fields[EMPLOYEE_FIELDS.employee_id]}: ${item.fields[EMPLOYEE_FIELDS.employee_name]} - matches: ${matches}`);
 
       return matches;
     });
@@ -52,15 +52,15 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
 
     // LarkUser型に変換
     const users: LarkUser[] = filteredUsers.map((item: any) => ({
-      open_id: item.fields.employee_id || item.record_id,
+      open_id: item.fields[EMPLOYEE_FIELDS.employee_id] || item.record_id,
       union_id: undefined,
-      user_id: item.fields.employee_id,
-      name: item.fields.name || item.fields.employee_name || "",
+      user_id: item.fields[EMPLOYEE_FIELDS.employee_id],
+      name: item.fields[EMPLOYEE_FIELDS.employee_name] || "",
       en_name: undefined,
-      email: item.fields.email || "",
+      email: item.fields[EMPLOYEE_FIELDS.email] || "",
       mobile: undefined,
       avatar: undefined,
-      department_ids: item.fields.department ? [item.fields.department] : undefined,
+      department_ids: item.fields[EMPLOYEE_FIELDS.department] ? [item.fields[EMPLOYEE_FIELDS.department]] : undefined,
     }));
 
     console.log('DEBUG searchLarkUsers - Returning users:', users.length);
