@@ -32,18 +32,33 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
     // クエリでフィルタリング
     const queryLower = query.toLowerCase();
     const filteredUsers = response.data.items.filter((item: any) => {
-      // フィールド名で取得
-      const name = (item.fields[EMPLOYEE_FIELDS.employee_name] || "").toLowerCase();
-      const email = (item.fields[EMPLOYEE_FIELDS.email] || "").toLowerCase();
-      const employeeId = (item.fields[EMPLOYEE_FIELDS.employee_id] || "").toLowerCase();
+      // フィールド名で取得（社員名はPeopleフィールドなので配列の場合がある）
+      const nameField = item.fields[EMPLOYEE_FIELDS.employee_name];
+      let name = "";
+      if (typeof nameField === "string") {
+        name = nameField.toLowerCase();
+      } else if (Array.isArray(nameField) && nameField[0]?.name) {
+        name = (nameField[0].name || "").toLowerCase();
+      } else if (nameField && typeof nameField === "object" && nameField.name) {
+        name = (nameField.name || "").toLowerCase();
+      }
+
+      // メールアドレスの取得
+      const emailField = item.fields[EMPLOYEE_FIELDS.email];
+      let email = "";
+      if (typeof emailField === "string") {
+        email = emailField.toLowerCase();
+      } else if (Array.isArray(nameField) && nameField[0]?.email) {
+        email = (nameField[0].email || "").toLowerCase();
+      }
+
+      const employeeId = String(item.fields[EMPLOYEE_FIELDS.employee_id] || "").toLowerCase();
 
       const matches = (
         name.includes(queryLower) ||
         email.includes(queryLower) ||
         employeeId.includes(queryLower)
       );
-
-      console.log(`DEBUG - Employee ${item.fields[EMPLOYEE_FIELDS.employee_id]}: ${item.fields[EMPLOYEE_FIELDS.employee_name]} - matches: ${matches}`);
 
       return matches;
     });
