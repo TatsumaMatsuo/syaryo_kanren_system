@@ -18,6 +18,7 @@ export default function SearchPage() {
   const [documents, setDocuments] = useState<UserDocuments | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // ユーザー検索
   const handleSearch = async () => {
@@ -51,6 +52,7 @@ export default function SearchPage() {
   const handleSelectUser = async (user: LarkUser) => {
     setSelectedUser(user);
     setDocuments(null);
+    setError(null);
     setLoading(true);
 
     try {
@@ -60,11 +62,11 @@ export default function SearchPage() {
       if (data.success) {
         setDocuments(data.data);
       } else {
-        alert("書類の取得に失敗しました");
+        setError(data.error || "書類の取得に失敗しました");
       }
-    } catch (error) {
-      console.error("Failed to fetch documents:", error);
-      alert("書類の取得中にエラーが発生しました");
+    } catch (err) {
+      console.error("Failed to fetch documents:", err);
+      setError("書類の取得中にエラーが発生しました");
     } finally {
       setLoading(false);
     }
@@ -74,6 +76,12 @@ export default function SearchPage() {
   const isPdf = (url: string | undefined) => {
     if (!url) return false;
     return url.toLowerCase().endsWith('.pdf');
+  };
+
+  // 画像URLを取得（/api/files/プレフィックス付き）
+  const getImageUrl = (fileKey: string | undefined) => {
+    if (!fileKey) return null;
+    return `/api/files/${fileKey}`;
   };
 
   // ステータスバッジ
@@ -190,7 +198,19 @@ export default function SearchPage() {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
               <p className="mt-2 text-gray-600">書類を読み込み中...</p>
             </div>
-          ) : documents ? (
+          ) : error ? (
+            <div className="text-center py-12 bg-red-50 rounded-lg border border-red-200">
+              <XCircle className="w-12 h-12 text-red-400 mx-auto" />
+              <p className="mt-4 text-red-600 font-medium">エラーが発生しました</p>
+              <p className="text-sm text-red-500 mt-1">{error}</p>
+            </div>
+          ) : !documents ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <User className="w-12 h-12 text-gray-400 mx-auto" />
+              <p className="mt-4 text-gray-600">書類情報がありません</p>
+              <p className="text-sm text-gray-500 mt-1">このユーザーは書類を登録していません</p>
+            </div>
+          ) : (
             <div className="space-y-6">
               {/* 運転免許証 */}
               <div className="border rounded-lg p-4">
@@ -198,6 +218,7 @@ export default function SearchPage() {
                   <div className="flex items-center space-x-2">
                     <FileText className="w-5 h-5 text-blue-600" />
                     <h3 className="text-lg font-semibold text-gray-900">運転免許証</h3>
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">最新</span>
                   </div>
                   {documents.license && getStatusBadge(documents.license.approval_status)}
                 </div>
@@ -226,12 +247,18 @@ export default function SearchPage() {
                             {new Date(documents.license.expiration_date).toLocaleDateString()}
                           </span>
                         </div>
+                        <div className="flex">
+                          <span className="text-gray-500 w-32">登録日:</span>
+                          <span className="text-gray-900 text-xs">
+                            {new Date(documents.license.created_at).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     {documents.license.image_url && (
                       <div>
                         <button
-                          onClick={() => setSelectedImage(documents.license!.image_url)}
+                          onClick={() => setSelectedImage(getImageUrl(documents.license!.image_url))}
                           className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
                         >
                           {isPdf(documents.license.image_url) ? (
@@ -241,7 +268,7 @@ export default function SearchPage() {
                             </div>
                           ) : (
                             <img
-                              src={documents.license.image_url}
+                              src={getImageUrl(documents.license.image_url) || ""}
                               alt="免許証"
                               className="w-full h-full object-cover"
                             />
@@ -264,6 +291,7 @@ export default function SearchPage() {
                   <div className="flex items-center space-x-2">
                     <Car className="w-5 h-5 text-green-600" />
                     <h3 className="text-lg font-semibold text-gray-900">車検証</h3>
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">最新</span>
                   </div>
                   {documents.vehicle && getStatusBadge(documents.vehicle.approval_status)}
                 </div>
@@ -294,12 +322,18 @@ export default function SearchPage() {
                             {new Date(documents.vehicle.inspection_expiration_date).toLocaleDateString()}
                           </span>
                         </div>
+                        <div className="flex">
+                          <span className="text-gray-500 w-32">登録日:</span>
+                          <span className="text-gray-900 text-xs">
+                            {new Date(documents.vehicle.created_at).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     {documents.vehicle.image_url && (
                       <div>
                         <button
-                          onClick={() => setSelectedImage(documents.vehicle!.image_url)}
+                          onClick={() => setSelectedImage(getImageUrl(documents.vehicle!.image_url))}
                           className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
                         >
                           {isPdf(documents.vehicle.image_url) ? (
@@ -309,7 +343,7 @@ export default function SearchPage() {
                             </div>
                           ) : (
                             <img
-                              src={documents.vehicle.image_url}
+                              src={getImageUrl(documents.vehicle.image_url) || ""}
                               alt="車検証"
                               className="w-full h-full object-cover"
                             />
@@ -332,71 +366,149 @@ export default function SearchPage() {
                   <div className="flex items-center space-x-2">
                     <Shield className="w-5 h-5 text-purple-600" />
                     <h3 className="text-lg font-semibold text-gray-900">任意保険証</h3>
+                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">最新</span>
                   </div>
                   {documents.insurance && getStatusBadge(documents.insurance.approval_status)}
                 </div>
 
                 {documents.insurance ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">証券番号:</span>
-                          <span className="text-gray-900 font-medium">{documents.insurance.policy_number}</span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">保険会社:</span>
-                          <span className="text-gray-900">{documents.insurance.insurance_company}</span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">保険種別:</span>
-                          <span className="text-gray-900">{documents.insurance.policy_type}</span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">保障開始日:</span>
-                          <span className="text-gray-900">
-                            {new Date(documents.insurance.coverage_start_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">保障終了日:</span>
-                          <span className="text-gray-900 font-medium">
-                            {new Date(documents.insurance.coverage_end_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {documents.insurance.image_url && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <button
-                          onClick={() => setSelectedImage(documents.insurance!.image_url)}
-                          className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
-                        >
-                          {isPdf(documents.insurance.image_url) ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
-                              <FileText className="w-12 h-12 text-red-500" />
-                              <span className="text-xs text-gray-600 mt-2">PDF</span>
-                            </div>
-                          ) : (
-                            <img
-                              src={documents.insurance.image_url}
-                              alt="保険証"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all">
-                            <ImageIcon className="w-8 h-8 text-white opacity-0 hover:opacity-100" />
+                        <div className="space-y-2 text-sm">
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">証券番号:</span>
+                            <span className="text-gray-900 font-medium">{documents.insurance.policy_number}</span>
                           </div>
-                        </button>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">保険会社:</span>
+                            <span className="text-gray-900">{documents.insurance.insurance_company}</span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">保険種別:</span>
+                            <span className="text-gray-900">{documents.insurance.policy_type}</span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">保障開始日:</span>
+                            <span className="text-gray-900">
+                              {new Date(documents.insurance.coverage_start_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">保障終了日:</span>
+                            <span className="text-gray-900 font-medium">
+                              {new Date(documents.insurance.coverage_end_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">登録日:</span>
+                            <span className="text-gray-900 text-xs">
+                              {new Date(documents.insurance.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                      {documents.insurance.image_url && (
+                        <div>
+                          <button
+                            onClick={() => setSelectedImage(getImageUrl(documents.insurance!.image_url))}
+                            className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
+                          >
+                            {isPdf(documents.insurance.image_url) ? (
+                              <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
+                                <FileText className="w-12 h-12 text-red-500" />
+                                <span className="text-xs text-gray-600 mt-2">PDF</span>
+                              </div>
+                            ) : (
+                              <img
+                                src={getImageUrl(documents.insurance.image_url) || ""}
+                                alt="保険証"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all">
+                              <ImageIcon className="w-8 h-8 text-white opacity-0 hover:opacity-100" />
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 補償内容 */}
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                      <h4 className="text-sm font-medium text-purple-800 mb-3">補償内容（会社規定）</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700">対人補償:</span>
+                          {documents.insurance.liability_personal_unlimited ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              無制限
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              条件未達
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700">対物補償:</span>
+                          {(documents.insurance.liability_property_amount || 0) >= 5000 ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              {(documents.insurance.liability_property_amount || 0).toLocaleString()}万円
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              {(documents.insurance.liability_property_amount || 0).toLocaleString()}万円（5,000万円以上必要）
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700">搭乗者傷害:</span>
+                          {(documents.insurance.passenger_injury_amount || 0) >= 2000 ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              {(documents.insurance.passenger_injury_amount || 0).toLocaleString()}万円
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              {(documents.insurance.passenger_injury_amount || 0).toLocaleString()}万円（2,000万円以上必要）
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {/* 会社規定判定 */}
+                      {(() => {
+                        const meetsRequirements =
+                          documents.insurance!.liability_personal_unlimited &&
+                          (documents.insurance!.liability_property_amount || 0) >= 5000 &&
+                          (documents.insurance!.passenger_injury_amount || 0) >= 2000;
+                        return meetsRequirements ? (
+                          <div className="mt-3 p-2 bg-green-100 rounded text-center">
+                            <span className="text-green-800 text-sm font-medium">
+                              ✓ 会社規定を満たしています（許可証発行可能）
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="mt-3 p-2 bg-red-100 rounded text-center">
+                            <span className="text-red-800 text-sm font-medium">
+                              ✗ 会社規定を満たしていません（許可証発行不可）
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500 text-sm">登録されていません</p>
                 )}
               </div>
             </div>
-          ) : null}
+          )}
         </div>
       )}
 

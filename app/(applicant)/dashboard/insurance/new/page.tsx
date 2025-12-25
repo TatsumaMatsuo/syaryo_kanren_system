@@ -68,6 +68,10 @@ export default function NewInsurancePage() {
           coverage_start_date: data.coverage_start_date.toISOString(),
           coverage_end_date: data.coverage_end_date.toISOString(),
           insured_amount: data.insured_amount,
+          // 補償内容フィールド
+          liability_personal_unlimited: data.liability_personal_unlimited,
+          liability_property_amount: data.liability_property_amount,
+          passenger_injury_amount: data.passenger_injury_amount,
           image_url: fileKey, // file_keyをimage_urlとして保存
         }),
       });

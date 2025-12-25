@@ -10,6 +10,7 @@ import {
 } from "@/services/permit.service";
 import { generatePermitPdf } from "@/services/pdf-generator.service";
 import { calculatePermitExpiration } from "@/lib/permit-utils";
+import { checkInsuranceRequirements } from "@/lib/validations/application";
 
 /**
  * POST /api/permits/generate
@@ -77,6 +78,22 @@ export async function POST(request: NextRequest) {
     if (!approvedInsurance) {
       return NextResponse.json(
         { success: false, error: "承認済みの保険証がありません" },
+        { status: 400 }
+      );
+    }
+
+    // 会社規定の保険条件チェック（対人無制限、対物5000万以上、搭乗者傷害2000万以上）
+    const insuranceCheck = checkInsuranceRequirements({
+      liability_personal_unlimited: approvedInsurance.liability_personal_unlimited,
+      liability_property_amount: approvedInsurance.liability_property_amount || 0,
+      passenger_injury_amount: approvedInsurance.passenger_injury_amount || 0,
+    });
+    if (!insuranceCheck.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `保険が会社規定を満たしていません: ${insuranceCheck.errors.join("、")}`,
+        },
         { status: 400 }
       );
     }

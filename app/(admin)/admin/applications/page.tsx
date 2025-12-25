@@ -386,28 +386,48 @@ export default function AdminApplicationsPage() {
                       </div>
                       {app.insurances.length > 0 ? (
                         <div className="space-y-3">
-                          {app.insurances.map((insurance, idx) => (
-                            <div key={insurance.id} className={idx > 0 ? "pt-3 border-t" : ""}>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-medium">{insurance.policy_number}</span>
-                                {getStatusBadge(insurance.approval_status)}
+                          {app.insurances.map((insurance, idx) => {
+                            const meetsRequirements =
+                              insurance.liability_personal_unlimited &&
+                              (insurance.liability_property_amount || 0) >= 5000 &&
+                              (insurance.passenger_injury_amount || 0) >= 2000;
+                            return (
+                              <div key={insurance.id} className={idx > 0 ? "pt-3 border-t" : ""}>
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-sm font-medium">{insurance.policy_number}</span>
+                                  {getStatusBadge(insurance.approval_status)}
+                                </div>
+                                <p className="text-xs text-gray-600">
+                                  保険期限: {new Date(insurance.coverage_end_date).toLocaleDateString()}
+                                </p>
+                                {/* 補償条件サマリー */}
+                                <div className="mt-1">
+                                  {meetsRequirements ? (
+                                    <span className="inline-flex items-center text-xs text-green-600">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      規定OK
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center text-xs text-red-600">
+                                      <XCircle className="h-3 w-3 mr-1" />
+                                      規定NG
+                                    </span>
+                                  )}
+                                </div>
+                                {insurance.image_url && (
+                                  <button
+                                    onClick={() =>
+                                      handleViewImage(insurance.image_url, `${app.employee.employee_name}さんの任意保険証（${insurance.policy_number}）`)
+                                    }
+                                    className="mt-1 flex items-center text-xs text-purple-600 hover:text-purple-800 transition-colors"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    画像を表示
+                                  </button>
+                                )}
                               </div>
-                              <p className="text-xs text-gray-600">
-                                保険期限: {new Date(insurance.coverage_end_date).toLocaleDateString()}
-                              </p>
-                              {insurance.image_url && (
-                                <button
-                                  onClick={() =>
-                                    handleViewImage(insurance.image_url, `${app.employee.employee_name}さんの任意保険証（${insurance.policy_number}）`)
-                                  }
-                                  className="mt-1 flex items-center text-xs text-purple-600 hover:text-purple-800 transition-colors"
-                                >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  画像を表示
-                                </button>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-400">未登録</p>

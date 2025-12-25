@@ -47,6 +47,10 @@ export async function POST(request: NextRequest) {
       coverage_start_date: new Date(body.coverage_start_date),
       coverage_end_date: new Date(body.coverage_end_date),
       insured_amount: body.insured_amount,
+      // 補償内容フィールド
+      liability_personal_unlimited: body.liability_personal_unlimited ?? false,
+      liability_property_amount: body.liability_property_amount ?? 0,
+      passenger_injury_amount: body.passenger_injury_amount ?? 0,
       image_url: body.image_url,
       status: "temporary",
       approval_status: "pending",

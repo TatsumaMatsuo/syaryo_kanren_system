@@ -649,6 +649,82 @@ export default function ApplicationDetailPage() {
                         </div>
                       </dl>
                     </div>
+
+                    {/* 補償内容 */}
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                      <h3 className="text-sm font-medium text-purple-800 mb-3">補償内容（会社規定）</h3>
+                      <dl className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <dt className="text-sm text-purple-700">対人補償</dt>
+                          <dd>
+                            {application.insurances[selectedDoc.index].liability_personal_unlimited ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                無制限
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                条件未達
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-sm text-purple-700">対物補償</dt>
+                          <dd>
+                            {(application.insurances[selectedDoc.index].liability_property_amount || 0) >= 5000 ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {(application.insurances[selectedDoc.index].liability_property_amount || 0).toLocaleString()}万円
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                {(application.insurances[selectedDoc.index].liability_property_amount || 0).toLocaleString()}万円（5,000万円以上必要）
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <dt className="text-sm text-purple-700">搭乗者傷害</dt>
+                          <dd>
+                            {(application.insurances[selectedDoc.index].passenger_injury_amount || 0) >= 2000 ? (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {(application.insurances[selectedDoc.index].passenger_injury_amount || 0).toLocaleString()}万円
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <XCircle className="w-3 h-3 mr-1" />
+                                {(application.insurances[selectedDoc.index].passenger_injury_amount || 0).toLocaleString()}万円（2,000万円以上必要）
+                              </span>
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                      {/* 会社規定を満たしているかの判定 */}
+                      {(() => {
+                        const ins = application.insurances[selectedDoc.index];
+                        const meetsRequirements =
+                          ins.liability_personal_unlimited &&
+                          (ins.liability_property_amount || 0) >= 5000 &&
+                          (ins.passenger_injury_amount || 0) >= 2000;
+                        return meetsRequirements ? (
+                          <div className="mt-3 p-2 bg-green-100 rounded text-center">
+                            <span className="text-green-800 text-sm font-medium">
+                              ✓ 会社規定を満たしています（許可証発行可能）
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="mt-3 p-2 bg-red-100 rounded text-center">
+                            <span className="text-red-800 text-sm font-medium">
+                              ✗ 会社規定を満たしていません（許可証発行不可）
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
 

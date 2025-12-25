@@ -75,6 +75,10 @@ export interface InsurancePolicy {
   coverage_start_date: Date;
   coverage_end_date: Date;
   insured_amount?: number;
+  // 補償内容（会社規定: 対人=無制限、対物≥5000万、搭乗者傷害≥2000万）
+  liability_personal_unlimited: boolean; // 対人補償無制限
+  liability_property_amount: number; // 対物補償金額（万円単位）
+  passenger_injury_amount: number; // 搭乗者傷害金額（万円単位）
   image_url: string;
   status: Status;
   approval_status: ApprovalStatus;
