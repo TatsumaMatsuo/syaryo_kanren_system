@@ -3,8 +3,8 @@ import { runExpirationMonitor } from "@/services/expiration-monitor.job";
 import { requireAdmin } from "@/lib/auth-utils";
 
 /**
- * POST /api/monitoring/expiration/run
- * 有効期限監視ジョブを手動実行（管理者のみ）
+ * POST /api/monitoring/run-check
+ * 有効期限チェックを手動で実行（管理者のみ）
  */
 export async function POST(request: NextRequest) {
   // 管理者権限チェック
@@ -13,28 +13,26 @@ export async function POST(request: NextRequest) {
     return authCheck.response;
   }
 
-  try {
-    console.log("[API] Manual expiration monitor job triggered");
+  console.log(
+    `[ManualCheck] Admin ${authCheck.userId} triggered expiration check at ${new Date().toISOString()}`
+  );
 
-    // バックグラウンドで実行（レスポンスを待たない）
-    runExpirationMonitor()
-      .then(() => {
-        console.log("[API] Manual expiration monitor job completed");
-      })
-      .catch((error) => {
-        console.error("[API] Manual expiration monitor job failed:", error);
-      });
+  try {
+    await runExpirationMonitor();
 
     return NextResponse.json({
       success: true,
-      message: "Expiration monitor job started",
+      message: "有効期限チェックが完了しました",
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Error in POST /api/monitoring/expiration/run:", error);
+    console.error("[ManualCheck] Expiration check failed:", error);
+
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to start expiration monitor job",
+        error: "有効期限チェックに失敗しました",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
