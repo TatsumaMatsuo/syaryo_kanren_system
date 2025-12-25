@@ -29,6 +29,9 @@ export const LARK_TABLES = {
 
   // 承認履歴テーブル
   APPROVAL_HISTORY: process.env.LARK_APPROVAL_HISTORY_TABLE_ID || "",
+
+  // 許可証テーブル
+  PERMITS: process.env.LARK_TABLE_PERMITS || "",
 } as const;
 
 /**
@@ -56,6 +59,7 @@ export const VEHICLE_REGISTRATION_FIELDS = {
   id: "id",
   employee_id: "employee_id",
   vehicle_number: "vehicle_number",
+  vehicle_type: "vehicle_type",
   manufacturer: "manufacturer",
   model_name: "model_name",
   expiration_date: "expiration_date",  // 実際のフィールド名
@@ -65,6 +69,8 @@ export const VEHICLE_REGISTRATION_FIELDS = {
   status: "status",
   approval_status: "approval_status",
   rejection_reason: "rejection_reason",
+  created_at: "created_at",
+  updated_at: "updated_at",
   deleted_flag: "deleted_flag",
   deleted_at: "deleted_at",
 } as const;
@@ -89,10 +95,10 @@ export const INSURANCE_POLICY_FIELDS = {
 } as const;
 
 export const EMPLOYEE_FIELDS = {
-  employee_id: "employee_id",
-  employee_name: "employee_name",
-  email: "email",
-  department: "department",
+  employee_id: "社員コード",
+  employee_name: "社員名 (メンバー )",
+  email: "社員名 (メンバー ).仕事用メールアドレス",
+  department: "社員名 (メンバー ).部署",
   role: "role",
   employment_status: "employment_status",
   hire_date: "hire_date",
@@ -146,4 +152,20 @@ export const APPROVAL_HISTORY_FIELDS = {
   reason: "reason",
   timestamp: "timestamp",
   created_at: "created_at",
+} as const;
+
+export const PERMIT_FIELDS = {
+  id: "id",
+  employee_id: "employee_id",
+  employee_name: "employee_name",
+  vehicle_id: "vehicle_id",
+  vehicle_number: "vehicle_number",
+  vehicle_model: "vehicle_model",
+  issue_date: "issue_date",
+  expiration_date: "expiration_date",
+  permit_file_key: "permit_file_key",
+  verification_token: "verification_token",
+  status: "status",
+  created_at: "created_at",
+  updated_at: "updated_at",
 } as const;

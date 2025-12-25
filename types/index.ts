@@ -11,6 +11,7 @@ export type NotificationType =
   | "approval"
   | "rejection";
 export type NotificationStatus = "sent" | "failed";
+export type PermitStatus = "valid" | "expired" | "revoked";
 
 // 社員型
 export interface Employee {
@@ -20,10 +21,10 @@ export interface Employee {
   department?: string;
   role: UserRole;
   employment_status: EmploymentStatus;
-  hire_date: Date;
+  hire_date?: Date;
   resignation_date?: Date;
-  created_at: Date;
-  updated_at: Date;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
 // 免許証型
@@ -136,4 +137,31 @@ export interface LarkUser {
     avatar_origin?: string;
   };
   department_ids?: string[];
+}
+
+// 許可証型
+export interface Permit {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  vehicle_id: string;
+  vehicle_number: string;
+  vehicle_model: string;
+  issue_date: Date;
+  expiration_date: Date;
+  permit_file_key: string;
+  verification_token: string;
+  status: PermitStatus;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// 許可証作成入力型
+export interface CreatePermitInput {
+  employee_id: string;
+  employee_name: string;
+  vehicle_id: string;
+  vehicle_number: string;
+  vehicle_model: string;
+  expiration_date: Date;
 }
