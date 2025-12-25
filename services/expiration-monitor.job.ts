@@ -1,4 +1,4 @@
-import { getExpiringDocuments, getExpiredDocuments } from "./expiration.service";
+import { getExpiringDocuments, getExpiredDocuments, getExpiredDocumentsForEscalation } from "./expiration.service";
 import {
   sendLarkMessage,
   createExpirationWarningTemplate,
@@ -156,20 +156,36 @@ export async function sendExpiredAlerts(): Promise<{
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
-  // 管理者への通知（期限切れ書類のサマリー）
+  // 管理者への通知（エスカレーション日数以上経過した期限切れ書類のみ）
   let adminSent = 0;
-  if (expired.length > 0) {
+  const escalationTargets = await getExpiredDocumentsForEscalation();
+
+  if (escalationTargets.length > 0) {
     const admins = await getUserPermissions();
     const adminUsers = admins.filter((u) => u.role === "admin");
 
-    const adminTemplate = createAdminExpiredNotificationTemplate(expired);
+    const adminTemplate = createAdminExpiredNotificationTemplate(escalationTargets);
 
     for (const admin of adminUsers) {
+      // 管理者向けエスカレーション通知の重複チェック
+      const isDuplicateAdmin = await isDuplicateNotification(
+        admin.lark_user_id,
+        "admin_escalation",
+        "admin_escalation"
+      );
+
+      if (isDuplicateAdmin) {
+        console.log(
+          `[ExpirationMonitor] Skipping duplicate admin escalation for ${admin.user_name}`
+        );
+        continue;
+      }
+
       const success = await sendLarkMessage(admin.lark_user_id, adminTemplate);
 
       await createNotificationHistory({
         recipient_id: admin.lark_user_id,
-        notification_type: "expiration_alert",
+        notification_type: "admin_escalation",
         title: adminTemplate.title,
         message: adminTemplate.content,
         status: success ? "sent" : "failed",
@@ -183,7 +199,11 @@ export async function sendExpiredAlerts(): Promise<{
     }
 
     console.log(
-      `[ExpirationMonitor] Sent admin alerts to ${adminSent} administrators`
+      `[ExpirationMonitor] Sent admin escalation alerts to ${adminSent} administrators (${escalationTargets.length} documents)`
+    );
+  } else {
+    console.log(
+      `[ExpirationMonitor] No documents require admin escalation yet`
     );
   }
 

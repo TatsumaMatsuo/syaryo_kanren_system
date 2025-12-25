@@ -155,20 +155,21 @@ export async function rejectDriversLicense(id: string, reason: string): Promise<
 }
 
 /**
- * 有効期限が近い免許証を取得（7日以内）
+ * 有効期限が近い免許証を取得
+ * @param warningDays 警告日数（デフォルト30日）
  */
-export async function getExpiringDriversLicenses(): Promise<DriversLicense[]> {
+export async function getExpiringDriversLicenses(warningDays: number = 30): Promise<DriversLicense[]> {
   try {
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayTime = today.getTime();
 
-    // 7日後の終わり（23時59分59秒）
-    const sevenDaysLater = new Date(today);
-    sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
-    sevenDaysLater.setHours(23, 59, 59, 999);
-    const sevenDaysLaterTime = sevenDaysLater.getTime();
+    // 警告日数後の終わり（23時59分59秒）
+    const warningDate = new Date(today);
+    warningDate.setDate(warningDate.getDate() + warningDays);
+    warningDate.setHours(23, 59, 59, 999);
+    const warningDateTime = warningDate.getTime();
 
     // フィルタなしで全件取得し、JavaScript側でフィルタリング
     const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {});
@@ -191,8 +192,8 @@ export async function getExpiringDriversLicenses(): Promise<DriversLicense[]> {
       // 有効期限の日付を取得
       const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
 
-      // 今日〜7日後の範囲内かチェック
-      if (expDate >= todayTime && expDate <= sevenDaysLaterTime) {
+      // 今日〜警告日数後の範囲内かチェック
+      if (expDate >= todayTime && expDate <= warningDateTime) {
         licenses.push({
           id: item.record_id,
           employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],

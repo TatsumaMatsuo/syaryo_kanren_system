@@ -23,6 +23,13 @@ interface ExpirationItem {
   daysUntilExpiration: number;
 }
 
+interface ExpirationSettings {
+  licenseWarningDays: number;
+  vehicleWarningDays: number;
+  insuranceWarningDays: number;
+  adminEscalationDays: number;
+}
+
 interface ExpirationSummary {
   expiringCount: number;
   expiredCount: number;
@@ -38,6 +45,7 @@ interface ExpirationSummary {
   };
   expiringList?: ExpirationItem[];
   expiredList?: ExpirationItem[];
+  settings?: ExpirationSettings;
 }
 
 export default function ExpirationMonitoringPage() {
@@ -129,7 +137,7 @@ export default function ExpirationMonitoringPage() {
                 有効期限監視
               </h1>
               <p className="mt-1 text-sm text-gray-600">
-                書類の有効期限切れと期限切れ間近を監視します
+                システム設定の警告日数に基づき有効期限を監視します
               </p>
             </div>
             <div className="flex space-x-2">
@@ -177,7 +185,7 @@ export default function ExpirationMonitoringPage() {
                         期限切れ間近
                       </h2>
                       <p className="text-sm text-gray-600">
-                        1週間以内に期限が切れる書類
+                        設定日数以内に期限が切れる書類
                       </p>
                     </div>
                   </div>
@@ -358,13 +366,13 @@ export default function ExpirationMonitoringPage() {
                 </div>
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-blue-800">
-                    自動通知設定
+                    有効期限警告設定（システム設定より）
                   </h3>
                   <div className="mt-2 text-sm text-blue-700">
-                    <p>• 毎日午前9時に自動で有効期限をチェックします</p>
-                    <p>• 期限1週間前: 申請者に警告通知を送信</p>
-                    <p>• 期限切れ: 申請者と管理者に緊急通知を送信</p>
-                    <p>• 同じ通知は24時間以内に重複送信されません</p>
+                    <p>• 免許証: 期限 <strong>{summary.settings?.licenseWarningDays || 30}日前</strong> から警告</p>
+                    <p>• 車検証: 期限 <strong>{summary.settings?.vehicleWarningDays || 30}日前</strong> から警告</p>
+                    <p>• 任意保険: 期限 <strong>{summary.settings?.insuranceWarningDays || 30}日前</strong> から警告</p>
+                    <p>• 管理者通知: 期限切れ後 <strong>{summary.settings?.adminEscalationDays || 7}日</strong> でエスカレーション</p>
                   </div>
                 </div>
               </div>

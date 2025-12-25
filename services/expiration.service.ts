@@ -14,6 +14,7 @@ import {
   getExpiredInsurancePolicies,
 } from "./insurance-policy.service";
 import { getEmployees } from "./employee.service";
+import { getSystemSettings } from "./system-settings.service";
 import { DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
 
 export interface ExpirationWarning {
@@ -27,13 +28,16 @@ export interface ExpirationWarning {
 }
 
 /**
- * 全ての有効期限切れ間近の書類を取得（1週間以内）
+ * 全ての有効期限切れ間近の書類を取得（システム設定の警告日数に基づく）
  */
 export async function getExpiringDocuments(): Promise<ExpirationWarning[]> {
+  // システム設定を取得
+  const settings = await getSystemSettings();
+
   const [licenses, vehicles, insurances, employees] = await Promise.all([
-    getExpiringDriversLicenses(),
-    getExpiringVehicleRegistrations(),
-    getExpiringInsurancePolicies(),
+    getExpiringDriversLicenses(settings.license_expiry_warning_days),
+    getExpiringVehicleRegistrations(settings.vehicle_expiry_warning_days),
+    getExpiringInsurancePolicies(settings.insurance_expiry_warning_days),
     getEmployees(true), // 退職者含む全社員を取得
   ]);
 
@@ -185,9 +189,37 @@ export async function getExpiredDocuments(): Promise<ExpirationWarning[]> {
 }
 
 /**
+ * 管理者エスカレーション対象の期限切れ書類を取得
+ * （期限切れ後、指定日数以上経過したもの）
+ */
+export async function getExpiredDocumentsForEscalation(): Promise<ExpirationWarning[]> {
+  // システム設定を取得
+  const settings = await getSystemSettings();
+  const escalationDays = settings.admin_notification_after_days;
+
+  // 全ての期限切れ書類を取得
+  const allExpired = await getExpiredDocuments();
+
+  // エスカレーション日数以上経過したもののみフィルタリング
+  // daysUntilExpirationは負の値（例: -5 = 5日超過）
+  const escalationTargets = allExpired.filter(
+    (doc) => Math.abs(doc.daysUntilExpiration) >= escalationDays
+  );
+
+  console.log(
+    `[getExpiredDocumentsForEscalation] Total expired: ${allExpired.length}, Escalation targets (>=${escalationDays} days): ${escalationTargets.length}`
+  );
+
+  return escalationTargets;
+}
+
+/**
  * 有効期限のサマリー情報を取得
  */
 export async function getExpirationSummary() {
+  // システム設定を取得
+  const settings = await getSystemSettings();
+
   const [expiring, expired] = await Promise.all([
     getExpiringDocuments(),
     getExpiredDocuments(),
@@ -223,5 +255,12 @@ export async function getExpirationSummary() {
     // 詳細リスト
     expiringList: expiring,
     expiredList: expired,
+    // システム設定（警告日数）
+    settings: {
+      licenseWarningDays: settings.license_expiry_warning_days,
+      vehicleWarningDays: settings.vehicle_expiry_warning_days,
+      insuranceWarningDays: settings.insurance_expiry_warning_days,
+      adminEscalationDays: settings.admin_notification_after_days,
+    },
   };
 }
