@@ -187,48 +187,59 @@ export async function getExpiringInsurancePolicies(): Promise<InsurancePolicy[]>
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
 
     // 7日後の終わり（23時59分59秒）
     const sevenDaysLater = new Date(today);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
     sevenDaysLater.setHours(23, 59, 59, 999);
+    const sevenDaysLaterTime = sevenDaysLater.getTime();
 
-    console.log("[Expiring Insurance] Today:", today.toISOString(), today.getTime());
-    console.log("[Expiring Insurance] Seven days later:", sevenDaysLater.toISOString(), sevenDaysLater.getTime());
+    // フィルタなしで全件取得し、JavaScript側でフィルタリング
+    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {});
 
-    // approval_statusも確認（承認フローが完了しているか）
-    const filter = `AND(
-      CurrentValue.[deleted_flag]=false,
-      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
-      CurrentValue.[coverage_end_date]>=${today.getTime()},
-      CurrentValue.[coverage_end_date]<=${sevenDaysLater.getTime()}
-    )`;
+    const policies: InsurancePolicy[] = [];
 
-    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
-      filter,
+    response.data?.items?.forEach((item: any) => {
+      const deletedFlag = item.fields[INSURANCE_POLICY_FIELDS.deleted_flag];
+      const status = item.fields[INSURANCE_POLICY_FIELDS.status];
+      const approvalStatus = item.fields[INSURANCE_POLICY_FIELDS.approval_status];
+      const expDateRaw = item.fields[INSURANCE_POLICY_FIELDS.coverage_end_date];
+
+      // deleted_flagがtrueの場合はスキップ
+      if (deletedFlag === true) return;
+
+      // 承認済みかどうかチェック
+      const isApproved = status === "approved" || approvalStatus === "approved";
+      if (!isApproved) return;
+
+      // 有効期限の日付を取得
+      const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
+
+      // 今日〜7日後の範囲内かチェック
+      if (expDate >= todayTime && expDate <= sevenDaysLaterTime) {
+        policies.push({
+          id: item.record_id,
+          employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
+          policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
+          insurance_company: item.fields[INSURANCE_POLICY_FIELDS.insurance_company],
+          policy_type: item.fields[INSURANCE_POLICY_FIELDS.policy_type],
+          coverage_start_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_start_date]),
+          coverage_end_date: new Date(expDate),
+          insured_amount: item.fields[INSURANCE_POLICY_FIELDS.insured_amount],
+          liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
+          liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
+          passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
+          image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
+          status: status,
+          approval_status: approvalStatus,
+          rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
+          created_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at]),
+          updated_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.updated_at]),
+          deleted_flag: false,
+        });
+      }
     });
-
-    const policies: InsurancePolicy[] =
-      response.data?.items?.map((item: any) => ({
-        id: item.record_id,
-        employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
-        policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
-        insurance_company: item.fields[INSURANCE_POLICY_FIELDS.insurance_company],
-        policy_type: item.fields[INSURANCE_POLICY_FIELDS.policy_type],
-        coverage_start_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_start_date]),
-        coverage_end_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_end_date]),
-        insured_amount: item.fields[INSURANCE_POLICY_FIELDS.insured_amount],
-        liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
-        liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
-        passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
-        image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
-        status: item.fields[INSURANCE_POLICY_FIELDS.status],
-        approval_status: item.fields[INSURANCE_POLICY_FIELDS.approval_status],
-        rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at]),
-        updated_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.updated_at]),
-        deleted_flag: false,
-      })) || [];
 
     return policies;
   } catch (error) {
@@ -245,41 +256,53 @@ export async function getExpiredInsurancePolicies(): Promise<InsurancePolicy[]> 
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
 
-    console.log("[Expired Insurance] Today:", today.toISOString(), today.getTime());
+    // フィルタなしで全件取得し、JavaScript側でフィルタリング
+    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {});
 
-    // approval_statusも確認（承認フローが完了しているか）
-    const filter = `AND(
-      CurrentValue.[deleted_flag]=false,
-      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
-      CurrentValue.[coverage_end_date]<${today.getTime()}
-    )`;
+    const policies: InsurancePolicy[] = [];
 
-    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
-      filter,
+    response.data?.items?.forEach((item: any) => {
+      const deletedFlag = item.fields[INSURANCE_POLICY_FIELDS.deleted_flag];
+      const status = item.fields[INSURANCE_POLICY_FIELDS.status];
+      const approvalStatus = item.fields[INSURANCE_POLICY_FIELDS.approval_status];
+      const expDateRaw = item.fields[INSURANCE_POLICY_FIELDS.coverage_end_date];
+
+      // deleted_flagがtrueの場合はスキップ
+      if (deletedFlag === true) return;
+
+      // 承認済みかどうかチェック
+      const isApproved = status === "approved" || approvalStatus === "approved";
+      if (!isApproved) return;
+
+      // 有効期限の日付を取得
+      const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
+
+      // 期限切れかチェック（今日より前）
+      if (expDate < todayTime) {
+        policies.push({
+          id: item.record_id,
+          employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
+          policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
+          insurance_company: item.fields[INSURANCE_POLICY_FIELDS.insurance_company],
+          policy_type: item.fields[INSURANCE_POLICY_FIELDS.policy_type],
+          coverage_start_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_start_date]),
+          coverage_end_date: new Date(expDate),
+          insured_amount: item.fields[INSURANCE_POLICY_FIELDS.insured_amount],
+          liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
+          liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
+          passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
+          image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
+          status: status,
+          approval_status: approvalStatus,
+          rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
+          created_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at]),
+          updated_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.updated_at]),
+          deleted_flag: false,
+        });
+      }
     });
-
-    const policies: InsurancePolicy[] =
-      response.data?.items?.map((item: any) => ({
-        id: item.record_id,
-        employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
-        policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
-        insurance_company: item.fields[INSURANCE_POLICY_FIELDS.insurance_company],
-        policy_type: item.fields[INSURANCE_POLICY_FIELDS.policy_type],
-        coverage_start_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_start_date]),
-        coverage_end_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_end_date]),
-        insured_amount: item.fields[INSURANCE_POLICY_FIELDS.insured_amount],
-        liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
-        liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
-        passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
-        image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
-        status: item.fields[INSURANCE_POLICY_FIELDS.status],
-        approval_status: item.fields[INSURANCE_POLICY_FIELDS.approval_status],
-        rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at]),
-        updated_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.updated_at]),
-        deleted_flag: false,
-      })) || [];
 
     return policies;
   } catch (error) {

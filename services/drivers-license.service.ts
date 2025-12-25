@@ -162,59 +162,54 @@ export async function getExpiringDriversLicenses(): Promise<DriversLicense[]> {
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
 
     // 7日後の終わり（23時59分59秒）
     const sevenDaysLater = new Date(today);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
     sevenDaysLater.setHours(23, 59, 59, 999);
+    const sevenDaysLaterTime = sevenDaysLater.getTime();
 
-    console.log("[Expiring Licenses] Today:", today.toISOString(), today.getTime());
-    console.log("[Expiring Licenses] Seven days later:", sevenDaysLater.toISOString(), sevenDaysLater.getTime());
+    // フィルタなしで全件取得し、JavaScript側でフィルタリング
+    const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {});
 
-    // approval_statusも確認（承認フローが完了しているか）
-    const filter = `AND(
-      CurrentValue.[deleted_flag]=false,
-      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
-      CurrentValue.[expiration_date]>=${today.getTime()},
-      CurrentValue.[expiration_date]<=${sevenDaysLater.getTime()}
-    )`;
+    const licenses: DriversLicense[] = [];
 
-    console.log("[Expiring Licenses] Filter:", filter);
-
-    const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
-      filter,
-    });
-
-    console.log("[Expiring Licenses] Response code:", response.code, "msg:", response.msg);
-    console.log("[Expiring Licenses] Items count:", response.data?.items?.length || 0);
-
-    // 全ての免許証を取得して期限を確認（デバッグ用）
-    const allLicenses = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {});
-    console.log("[Expiring Licenses] All licenses count:", allLicenses.data?.items?.length || 0);
-    allLicenses.data?.items?.forEach((item: any, index: number) => {
-      const expDate = item.fields[DRIVERS_LICENSE_FIELDS.expiration_date];
+    response.data?.items?.forEach((item: any) => {
+      const deletedFlag = item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag];
       const status = item.fields[DRIVERS_LICENSE_FIELDS.status];
       const approvalStatus = item.fields[DRIVERS_LICENSE_FIELDS.approval_status];
-      const deletedFlag = item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag];
-      console.log(`[Expiring Licenses] License ${index}: expiration_date=${expDate} (${new Date(expDate).toISOString()}), status=${status}, approval_status=${approvalStatus}, deleted_flag=${deletedFlag}`);
-    });
+      const expDateRaw = item.fields[DRIVERS_LICENSE_FIELDS.expiration_date];
 
-    const licenses: DriversLicense[] =
-      response.data?.items?.map((item: any) => ({
-        id: item.record_id,
-        employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
-        license_number: item.fields[DRIVERS_LICENSE_FIELDS.license_number],
-        license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
-        issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
-        expiration_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.expiration_date]),
-        image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
-        status: item.fields[DRIVERS_LICENSE_FIELDS.status],
-        approval_status: item.fields[DRIVERS_LICENSE_FIELDS.approval_status],
-        rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at]),
-        updated_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at]),
-        deleted_flag: false,
-      })) || [];
+      // deleted_flagがtrueの場合はスキップ
+      if (deletedFlag === true) return;
+
+      // 承認済みかどうかチェック
+      const isApproved = status === "approved" || approvalStatus === "approved";
+      if (!isApproved) return;
+
+      // 有効期限の日付を取得
+      const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
+
+      // 今日〜7日後の範囲内かチェック
+      if (expDate >= todayTime && expDate <= sevenDaysLaterTime) {
+        licenses.push({
+          id: item.record_id,
+          employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
+          license_number: item.fields[DRIVERS_LICENSE_FIELDS.license_number],
+          license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
+          issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
+          expiration_date: new Date(expDate),
+          image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
+          status: status,
+          approval_status: approvalStatus,
+          rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
+          created_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at]),
+          updated_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at]),
+          deleted_flag: false,
+        });
+      }
+    });
 
     return licenses;
   } catch (error) {
@@ -231,36 +226,48 @@ export async function getExpiredDriversLicenses(): Promise<DriversLicense[]> {
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
 
-    console.log("[Expired Licenses] Today:", today.toISOString(), today.getTime());
+    // フィルタなしで全件取得し、JavaScript側でフィルタリング
+    const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {});
 
-    // approval_statusも確認（承認フローが完了しているか）
-    const filter = `AND(
-      CurrentValue.[deleted_flag]=false,
-      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
-      CurrentValue.[expiration_date]<${today.getTime()}
-    )`;
+    const licenses: DriversLicense[] = [];
 
-    const response = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
-      filter,
+    response.data?.items?.forEach((item: any) => {
+      const deletedFlag = item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag];
+      const status = item.fields[DRIVERS_LICENSE_FIELDS.status];
+      const approvalStatus = item.fields[DRIVERS_LICENSE_FIELDS.approval_status];
+      const expDateRaw = item.fields[DRIVERS_LICENSE_FIELDS.expiration_date];
+
+      // deleted_flagがtrueの場合はスキップ
+      if (deletedFlag === true) return;
+
+      // 承認済みかどうかチェック
+      const isApproved = status === "approved" || approvalStatus === "approved";
+      if (!isApproved) return;
+
+      // 有効期限の日付を取得
+      const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
+
+      // 期限切れかチェック（今日より前）
+      if (expDate < todayTime) {
+        licenses.push({
+          id: item.record_id,
+          employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
+          license_number: item.fields[DRIVERS_LICENSE_FIELDS.license_number],
+          license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
+          issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
+          expiration_date: new Date(expDate),
+          image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
+          status: status,
+          approval_status: approvalStatus,
+          rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
+          created_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at]),
+          updated_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at]),
+          deleted_flag: false,
+        });
+      }
     });
-
-    const licenses: DriversLicense[] =
-      response.data?.items?.map((item: any) => ({
-        id: item.record_id,
-        employee_id: item.fields[DRIVERS_LICENSE_FIELDS.employee_id],
-        license_number: item.fields[DRIVERS_LICENSE_FIELDS.license_number],
-        license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
-        issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
-        expiration_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.expiration_date]),
-        image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
-        status: item.fields[DRIVERS_LICENSE_FIELDS.status],
-        approval_status: item.fields[DRIVERS_LICENSE_FIELDS.approval_status],
-        rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at]),
-        updated_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at]),
-        deleted_flag: false,
-      })) || [];
 
     return licenses;
   } catch (error) {

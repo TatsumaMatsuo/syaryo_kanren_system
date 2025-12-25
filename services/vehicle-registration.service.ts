@@ -180,48 +180,56 @@ export async function getExpiringVehicleRegistrations(): Promise<VehicleRegistra
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
 
     // 7日後の終わり（23時59分59秒）
     const sevenDaysLater = new Date(today);
     sevenDaysLater.setDate(sevenDaysLater.getDate() + 7);
     sevenDaysLater.setHours(23, 59, 59, 999);
+    const sevenDaysLaterTime = sevenDaysLater.getTime();
 
-    console.log("[Expiring Vehicles] Today:", today.toISOString(), today.getTime());
-    console.log("[Expiring Vehicles] Seven days later:", sevenDaysLater.toISOString(), sevenDaysLater.getTime());
+    // フィルタなしで全件取得し、JavaScript側でフィルタリング
+    const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {});
 
-    // approval_statusも確認（承認フローが完了しているか）
-    // フィールド名は expiration_date（inspection_expiration_date ではない）
-    const filter = `AND(
-      CurrentValue.[deleted_flag]=false,
-      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
-      CurrentValue.[expiration_date]>=${today.getTime()},
-      CurrentValue.[expiration_date]<=${sevenDaysLater.getTime()}
-    )`;
+    const registrations: VehicleRegistration[] = [];
 
-    const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
-      filter,
+    response.data?.items?.forEach((item: any) => {
+      const deletedFlag = item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag];
+      const status = item.fields[VEHICLE_REGISTRATION_FIELDS.status];
+      const approvalStatus = item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status];
+      const expDateRaw = item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date];
+
+      // deleted_flagがtrueの場合はスキップ
+      if (deletedFlag === true) return;
+
+      // 承認済みかどうかチェック
+      const isApproved = status === "approved" || approvalStatus === "approved";
+      if (!isApproved) return;
+
+      // 有効期限の日付を取得
+      const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
+
+      // 今日〜7日後の範囲内かチェック
+      if (expDate >= todayTime && expDate <= sevenDaysLaterTime) {
+        registrations.push({
+          id: item.record_id,
+          employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
+          vehicle_number: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number],
+          vehicle_type: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_type],
+          manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
+          model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
+          inspection_expiration_date: new Date(expDate),
+          owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
+          image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
+          status: status,
+          approval_status: approvalStatus,
+          rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
+          created_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.created_at]),
+          updated_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.updated_at]),
+          deleted_flag: false,
+        });
+      }
     });
-
-    const registrations: VehicleRegistration[] =
-      response.data?.items?.map((item: any) => ({
-        id: item.record_id,
-        employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
-        vehicle_number: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number],
-        vehicle_type: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_type],
-        manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
-        model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
-        inspection_expiration_date: new Date(
-          item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date]
-        ),
-        owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
-        image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
-        status: item.fields[VEHICLE_REGISTRATION_FIELDS.status],
-        approval_status: item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status],
-        rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.created_at]),
-        updated_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.updated_at]),
-        deleted_flag: false,
-      })) || [];
 
     return registrations;
   } catch (error) {
@@ -238,41 +246,50 @@ export async function getExpiredVehicleRegistrations(): Promise<VehicleRegistrat
     // 今日の日付（0時0分0秒にリセット）
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
 
-    console.log("[Expired Vehicles] Today:", today.toISOString(), today.getTime());
+    // フィルタなしで全件取得し、JavaScript側でフィルタリング
+    const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {});
 
-    // approval_statusも確認（承認フローが完了しているか）
-    // フィールド名は expiration_date（inspection_expiration_date ではない）
-    const filter = `AND(
-      CurrentValue.[deleted_flag]=false,
-      OR(CurrentValue.[status]="approved", CurrentValue.[approval_status]="approved"),
-      CurrentValue.[expiration_date]<${today.getTime()}
-    )`;
+    const registrations: VehicleRegistration[] = [];
 
-    const response = await getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, {
-      filter,
+    response.data?.items?.forEach((item: any) => {
+      const deletedFlag = item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag];
+      const status = item.fields[VEHICLE_REGISTRATION_FIELDS.status];
+      const approvalStatus = item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status];
+      const expDateRaw = item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date];
+
+      // deleted_flagがtrueの場合はスキップ
+      if (deletedFlag === true) return;
+
+      // 承認済みかどうかチェック
+      const isApproved = status === "approved" || approvalStatus === "approved";
+      if (!isApproved) return;
+
+      // 有効期限の日付を取得
+      const expDate = typeof expDateRaw === "number" ? expDateRaw : new Date(expDateRaw).getTime();
+
+      // 期限切れかチェック（今日より前）
+      if (expDate < todayTime) {
+        registrations.push({
+          id: item.record_id,
+          employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
+          vehicle_number: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number],
+          vehicle_type: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_type],
+          manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
+          model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
+          inspection_expiration_date: new Date(expDate),
+          owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
+          image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
+          status: status,
+          approval_status: approvalStatus,
+          rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
+          created_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.created_at]),
+          updated_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.updated_at]),
+          deleted_flag: false,
+        });
+      }
     });
-
-    const registrations: VehicleRegistration[] =
-      response.data?.items?.map((item: any) => ({
-        id: item.record_id,
-        employee_id: item.fields[VEHICLE_REGISTRATION_FIELDS.employee_id],
-        vehicle_number: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_number],
-        vehicle_type: item.fields[VEHICLE_REGISTRATION_FIELDS.vehicle_type],
-        manufacturer: item.fields[VEHICLE_REGISTRATION_FIELDS.manufacturer],
-        model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
-        inspection_expiration_date: new Date(
-          item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date]
-        ),
-        owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
-        image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
-        status: item.fields[VEHICLE_REGISTRATION_FIELDS.status],
-        approval_status: item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status],
-        rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.created_at]),
-        updated_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.updated_at]),
-        deleted_flag: false,
-      })) || [];
 
     return registrations;
   } catch (error) {
