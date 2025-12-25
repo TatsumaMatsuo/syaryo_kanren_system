@@ -1,6 +1,6 @@
 import { ApplicationOverview, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
 import { getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
 
 /**
  * 統合ビュー: 社員の申請情報を3テーブル結合で取得
@@ -106,6 +106,10 @@ export async function getApplicationOverview(
           coverage_start_date: item.fields.coverage_start_date ? new Date(item.fields.coverage_start_date) : undefined,
           coverage_end_date: item.fields.coverage_end_date ? new Date(item.fields.coverage_end_date) : undefined,
           insured_amount: item.fields.insured_amount,
+          // 補償内容フィールド（会社規定チェック用）
+          liability_personal_unlimited: item.fields.liability_personal_unlimited || false,
+          liability_property_amount: item.fields.liability_property_amount || 0,
+          passenger_injury_amount: item.fields.passenger_injury_amount || 0,
           image_url: item.fields.image_url,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
@@ -122,6 +126,7 @@ export async function getApplicationOverview(
       });
 
     // 社員マスタを基準に結合
+    // 社員マスタのフィールド名は日本語（社員コード、社員名など）
     console.log('DEBUG: Employees count:', employeesResponse.data?.items?.length || 0);
     console.log('DEBUG: Licenses count:', licensesResponse.data?.items?.length || 0);
     console.log('DEBUG: Vehicles count:', vehiclesResponse.data?.items?.length || 0);
@@ -130,12 +135,26 @@ export async function getApplicationOverview(
     const overviewsRaw =
       employeesResponse.data?.items
         ?.map((item: any): ApplicationOverview | null => {
-          const empId = item.fields.employee_id;
+          // 社員マスタのフィールド名（日本語）からemployee_idを取得
+          const empId = item.fields[EMPLOYEE_FIELDS.employee_id] || item.fields.employee_id;
+          const empName = item.fields[EMPLOYEE_FIELDS.employee_name] ||
+                          item.fields["社員名"] ||
+                          item.fields.name ||
+                          "不明";
+          // メンバーフィールドからメール・部署を取得
+          const memberField = item.fields[EMPLOYEE_FIELDS.employee_name];
+          const email = item.fields[EMPLOYEE_FIELDS.email] ||
+                        (Array.isArray(memberField) && memberField[0]?.email) ||
+                        item.fields.email || "";
+          const department = item.fields[EMPLOYEE_FIELDS.department]?.join(", ") ||
+                             (Array.isArray(memberField) && memberField[0]?.department_ids?.join(", ")) ||
+                             item.fields.department || "";
+
           const license = licensesMap.get(empId) || null;
           const vehicles = vehiclesMap.get(empId) || [];
           const insurances = insurancesMap.get(empId) || [];
 
-          console.log(`DEBUG: Employee ${empId}:`, {
+          console.log(`DEBUG: Employee ${empId} (${empName}):`, {
             hasLicense: !!license,
             vehicleCount: vehicles.length,
             insuranceCount: insurances.length,
@@ -149,12 +168,12 @@ export async function getApplicationOverview(
 
           return {
             employee: {
-              employee_id: item.fields.employee_id,
-              employee_name: item.fields.name,
-              email: item.fields.email,
-              department: item.fields.department,
-              role: item.fields.role,
-              employment_status: item.fields.employment_status,
+              employee_id: empId,
+              employee_name: empName,
+              email: email,
+              department: department,
+              role: item.fields.role || "applicant",
+              employment_status: item.fields["退職者フラグ"] ? "resigned" : "active",
               hire_date: item.fields.hire_date ? new Date(item.fields.hire_date) : undefined,
               resignation_date: item.fields.resignation_date
                 ? new Date(item.fields.resignation_date)

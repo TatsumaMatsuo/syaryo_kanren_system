@@ -62,7 +62,7 @@ export default function MyDocumentsPage() {
     }
   }, [status, router]);
 
-  // 書類データを取得
+  // 書類データを取得（承認済みのみフィルタリング）
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
@@ -70,7 +70,17 @@ export default function MyDocumentsPage() {
         const data = await response.json();
 
         if (data.success) {
-          setDocuments(data.data);
+          // 承認済み書類のみをフィルタリング
+          const filteredData: MyDocuments = {
+            license: data.data.license?.approval_status === "approved" ? data.data.license : null,
+            vehicles: (data.data.vehicles || []).filter(
+              (v: DocumentData) => v.approval_status === "approved"
+            ),
+            insurances: (data.data.insurances || []).filter(
+              (i: DocumentData) => i.approval_status === "approved"
+            ),
+          };
+          setDocuments(filteredData);
         } else {
           setError(data.error || "書類の取得に失敗しました");
         }

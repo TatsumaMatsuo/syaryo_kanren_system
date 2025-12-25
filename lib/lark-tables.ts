@@ -85,9 +85,9 @@ export const INSURANCE_POLICY_FIELDS = {
   coverage_end_date: "coverage_end_date",
   insured_amount: "insured_amount",
   // 補償内容フィールド（会社規定: 対人=無制限、対物≥5000万、搭乗者傷害≥2000万）
-  liability_personal_unlimited: "対人補償無制限", // 対人補償無制限（チェックボックス）
-  liability_property_amount: "対物補償金額", // 対物補償金額（万円単位）
-  passenger_injury_amount: "搭乗者傷害金額", // 搭乗者傷害金額（万円単位）
+  liability_personal_unlimited: "liability_personal_unlimited", // 対人補償無制限（チェックボックス）
+  liability_property_amount: "liability_property_amount", // 対物補償金額（万円単位）
+  passenger_injury_amount: "passenger_injury_amount", // 搭乗者傷害金額（万円単位）
   image_url: "image_url",
   status: "status",
   approval_status: "approval_status",
