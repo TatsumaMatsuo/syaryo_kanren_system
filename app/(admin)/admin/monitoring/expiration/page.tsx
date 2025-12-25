@@ -9,7 +9,19 @@ import {
   Shield,
   RefreshCw,
   Play,
+  Calendar,
+  User,
 } from "lucide-react";
+
+interface ExpirationItem {
+  type: "license" | "vehicle" | "insurance";
+  documentId: string;
+  employeeId: string;
+  employeeName: string;
+  documentNumber: string;
+  expirationDate: string;
+  daysUntilExpiration: number;
+}
 
 interface ExpirationSummary {
   expiringCount: number;
@@ -24,6 +36,8 @@ interface ExpirationSummary {
     vehicle: number;
     insurance: number;
   };
+  expiringList?: ExpirationItem[];
+  expiredList?: ExpirationItem[];
 }
 
 export default function ExpirationMonitoringPage() {
@@ -229,6 +243,112 @@ export default function ExpirationMonitoringPage() {
                 </div>
               </div>
             </div>
+
+            {/* 期限切れ間近リスト */}
+            {summary.expiringCount > 0 && summary.expiringList && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-orange-600 flex items-center">
+                    <AlertTriangle className="w-5 h-5 mr-2" />
+                    期限切れ間近の書類一覧
+                  </h3>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {summary.expiringList.map((item, index) => (
+                    <div
+                      key={`${item.type}-${item.documentId}-${index}`}
+                      className="px-6 py-4 hover:bg-orange-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 bg-orange-100 rounded-lg">
+                            {getTypeIcon(item.type)}
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-900">
+                                {getTypeLabel(item.type)}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {item.documentNumber}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                              <span className="flex items-center">
+                                <User className="w-4 h-4 mr-1" />
+                                {item.employeeName}
+                              </span>
+                              <span className="flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                {new Date(item.expirationDate).toLocaleDateString("ja-JP")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                            残り {item.daysUntilExpiration} 日
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 期限切れリスト */}
+            {summary.expiredCount > 0 && summary.expiredList && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-red-600 flex items-center">
+                    <AlertCircle className="w-5 h-5 mr-2" />
+                    期限切れの書類一覧
+                  </h3>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {summary.expiredList.map((item, index) => (
+                    <div
+                      key={`${item.type}-${item.documentId}-${index}`}
+                      className="px-6 py-4 hover:bg-red-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="p-2 bg-red-100 rounded-lg">
+                            {getTypeIcon(item.type)}
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-900">
+                                {getTypeLabel(item.type)}
+                              </span>
+                              <span className="text-sm text-gray-500">
+                                {item.documentNumber}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                              <span className="flex items-center">
+                                <User className="w-4 h-4 mr-1" />
+                                {item.employeeName}
+                              </span>
+                              <span className="flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                {new Date(item.expirationDate).toLocaleDateString("ja-JP")}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                            {Math.abs(item.daysUntilExpiration)} 日超過
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* 通知設定情報 */}
             <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded">
