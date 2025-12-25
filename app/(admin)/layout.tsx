@@ -13,6 +13,7 @@ import {
   X,
   Search,
   BadgeCheck,
+  UserPlus,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -32,6 +33,12 @@ export default function AdminLayout({
       href: "/admin/applications",
       icon: FileText,
       color: "text-blue-600",
+    },
+    {
+      name: "代理申請",
+      href: "/admin/proxy",
+      icon: UserPlus,
+      color: "text-cyan-600",
     },
     {
       name: "書類照会",
