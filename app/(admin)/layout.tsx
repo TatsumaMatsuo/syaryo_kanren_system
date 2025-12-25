@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   FileText,
   History,
-  Users,
   Settings,
   Calendar,
   LogOut,
@@ -57,12 +56,6 @@ export default function AdminLayout({
       href: "/admin/monitoring/expiration",
       icon: Calendar,
       color: "text-rose-600",
-    },
-    {
-      name: "従業員管理",
-      href: "/admin/employees",
-      icon: Users,
-      color: "text-violet-600",
     },
     {
       name: "システム設定",
