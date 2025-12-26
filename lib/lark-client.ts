@@ -1,26 +1,58 @@
 import * as lark from "@larksuiteoapi/node-sdk";
 
-// Lark クライアント設定
-export const larkClient = new lark.Client({
-  appId: process.env.LARK_APP_ID || "",
-  appSecret: process.env.LARK_APP_SECRET || "",
-  appType: lark.AppType.SelfBuild,
-  domain: lark.Domain.Feishu,
-});
-
-// Lark Base トークン
-export const LARK_BASE_TOKEN = process.env.LARK_BASE_TOKEN || "";
+// Larkクライアント（遅延初期化）
+let _larkClient: lark.Client | null = null;
 
 /**
- * Larkクライアントを取得
- * 環境変数が設定されているか確認
+ * Larkクライアントを取得（遅延初期化）
+ * ランタイム時に環境変数を読み込む
  */
-export function getLarkClient() {
+export function getLarkClient(): lark.Client | null {
   if (!process.env.LARK_APP_ID || !process.env.LARK_APP_SECRET) {
+    console.error("[lark-client] Missing LARK_APP_ID or LARK_APP_SECRET");
     return null;
   }
-  return larkClient;
+
+  if (!_larkClient) {
+    _larkClient = new lark.Client({
+      appId: process.env.LARK_APP_ID,
+      appSecret: process.env.LARK_APP_SECRET,
+      appType: lark.AppType.SelfBuild,
+      domain: lark.Domain.Feishu,
+    });
+  }
+
+  return _larkClient;
 }
+
+// 後方互換性のためのエクスポート（非推奨）
+export const larkClient = {
+  get bitable() {
+    const client = getLarkClient();
+    if (!client) throw new Error("Lark client not initialized");
+    return client.bitable;
+  },
+  get im() {
+    const client = getLarkClient();
+    if (!client) throw new Error("Lark client not initialized");
+    return client.im;
+  },
+  get contact() {
+    const client = getLarkClient();
+    if (!client) throw new Error("Lark client not initialized");
+    return client.contact;
+  },
+};
+
+/**
+ * Lark Base トークンを取得（ランタイム時に環境変数から取得）
+ */
+export function getLarkBaseToken(): string {
+  return process.env.LARK_BASE_TOKEN || "";
+}
+
+// 後方互換性のためのエクスポート（非推奨）
+export const LARK_BASE_TOKEN = process.env.LARK_BASE_TOKEN || "";
 
 /**
  * Lark Baseからレコードを取得

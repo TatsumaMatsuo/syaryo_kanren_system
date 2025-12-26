@@ -83,6 +83,8 @@ export async function GET() {
           table: table.name,
           status: 'error',
           message: error.message || 'テーブルへのアクセスに失敗しました',
+          errorCode: error.code,
+          errorResponse: error.response?.data || error.response,
         });
       }
     }
