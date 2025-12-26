@@ -9,7 +9,8 @@ export type NotificationType =
   | "expiration_warning"
   | "expiration_alert"
   | "approval"
-  | "rejection";
+  | "rejection"
+  | "admin_escalation";
 export type NotificationStatus = "sent" | "failed";
 export type PermitStatus = "valid" | "expired" | "revoked";
 
