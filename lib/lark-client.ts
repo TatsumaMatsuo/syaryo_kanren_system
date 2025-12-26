@@ -66,7 +66,7 @@ export async function getBaseRecords(tableId: string, params?: {
   try {
     const response = await larkClient.bitable.appTableRecord.list({
       path: {
-        app_token: LARK_BASE_TOKEN,
+        app_token: getLarkBaseToken(),
         table_id: tableId,
       },
       params: {
@@ -103,7 +103,7 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
 
     const response = await larkClient.bitable.appTableRecord.create({
       path: {
-        app_token: LARK_BASE_TOKEN,
+        app_token: getLarkBaseToken(),
         table_id: tableId,
       },
       data: {
@@ -139,7 +139,7 @@ export async function updateBaseRecord(
 
     const response = await larkClient.bitable.appTableRecord.update({
       path: {
-        app_token: LARK_BASE_TOKEN,
+        app_token: getLarkBaseToken(),
         table_id: tableId,
         record_id: recordId,
       },
@@ -186,7 +186,7 @@ export async function hardDeleteBaseRecord(tableId: string, recordId: string) {
   try {
     const response = await larkClient.bitable.appTableRecord.delete({
       path: {
-        app_token: LARK_BASE_TOKEN,
+        app_token: getLarkBaseToken(),
         table_id: tableId,
         record_id: recordId,
       },
@@ -206,7 +206,7 @@ export async function getBaseTables() {
   try {
     const response = await larkClient.bitable.appTable.list({
       path: {
-        app_token: LARK_BASE_TOKEN,
+        app_token: getLarkBaseToken(),
       },
     });
 

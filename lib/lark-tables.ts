@@ -1,38 +1,38 @@
 /**
  * Lark Base テーブルID定義
  *
- * 実際の環境では、これらのIDは環境変数から読み込むか、
- * 初期セットアップ時に動的に作成・取得する必要があります
+ * サーバーレス環境での遅延初期化に対応
  */
 
+/**
+ * テーブルIDを取得（遅延初期化対応）
+ */
+export function getLarkTables() {
+  return {
+    DRIVERS_LICENSES: process.env.LARK_TABLE_DRIVERS_LICENSES || "",
+    VEHICLE_REGISTRATIONS: process.env.LARK_TABLE_VEHICLE_REGISTRATIONS || "",
+    INSURANCE_POLICIES: process.env.LARK_TABLE_INSURANCE_POLICIES || "",
+    EMPLOYEES: process.env.LARK_TABLE_EMPLOYEES || "",
+    USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "",
+    NOTIFICATION_HISTORY: process.env.LARK_TABLE_NOTIFICATION_HISTORY || "",
+    SYSTEM_SETTINGS: process.env.LARK_TABLE_SYSTEM_SETTINGS || "",
+    APPROVAL_HISTORY: process.env.LARK_APPROVAL_HISTORY_TABLE_ID || "",
+    PERMITS: process.env.LARK_TABLE_PERMITS || "",
+  };
+}
+
+// 後方互換性のため（非推奨: getLarkTables()を使用してください）
 export const LARK_TABLES = {
-  // 免許証テーブル
-  DRIVERS_LICENSES: process.env.LARK_TABLE_DRIVERS_LICENSES || "",
-
-  // 車検証テーブル
-  VEHICLE_REGISTRATIONS: process.env.LARK_TABLE_VEHICLE_REGISTRATIONS || "",
-
-  // 任意保険証テーブル
-  INSURANCE_POLICIES: process.env.LARK_TABLE_INSURANCE_POLICIES || "",
-
-  // 社員マスタテーブル
-  EMPLOYEES: process.env.LARK_TABLE_EMPLOYEES || "",
-
-  // ユーザー権限テーブル
-  USER_PERMISSIONS: process.env.LARK_TABLE_USER_PERMISSIONS || "",
-
-  // 通知履歴テーブル
-  NOTIFICATION_HISTORY: process.env.LARK_TABLE_NOTIFICATION_HISTORY || "",
-
-  // システム設定テーブル
-  SYSTEM_SETTINGS: process.env.LARK_TABLE_SYSTEM_SETTINGS || "",
-
-  // 承認履歴テーブル
-  APPROVAL_HISTORY: process.env.LARK_APPROVAL_HISTORY_TABLE_ID || "",
-
-  // 許可証テーブル
-  PERMITS: process.env.LARK_TABLE_PERMITS || "",
-} as const;
+  get DRIVERS_LICENSES() { return process.env.LARK_TABLE_DRIVERS_LICENSES || ""; },
+  get VEHICLE_REGISTRATIONS() { return process.env.LARK_TABLE_VEHICLE_REGISTRATIONS || ""; },
+  get INSURANCE_POLICIES() { return process.env.LARK_TABLE_INSURANCE_POLICIES || ""; },
+  get EMPLOYEES() { return process.env.LARK_TABLE_EMPLOYEES || ""; },
+  get USER_PERMISSIONS() { return process.env.LARK_TABLE_USER_PERMISSIONS || ""; },
+  get NOTIFICATION_HISTORY() { return process.env.LARK_TABLE_NOTIFICATION_HISTORY || ""; },
+  get SYSTEM_SETTINGS() { return process.env.LARK_TABLE_SYSTEM_SETTINGS || ""; },
+  get APPROVAL_HISTORY() { return process.env.LARK_APPROVAL_HISTORY_TABLE_ID || ""; },
+  get PERMITS() { return process.env.LARK_TABLE_PERMITS || ""; },
+};
 
 /**
  * テーブルフィールド定義
