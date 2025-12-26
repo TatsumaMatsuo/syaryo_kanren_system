@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
-import fs from "fs";
-import path from "path";
+import { uploadFileToLark } from "@/lib/lark-client";
 import crypto from "crypto";
-
-// ローカルファイル保存ディレクトリ
-const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 /**
  * ファイルアップロードAPI
  * POST /api/upload
  * 認証済みユーザーのみアップロード可能
- * ローカルファイルストレージを使用
+ * Lark IM File APIを使用してクラウドストレージに保存
  */
 export async function POST(request: NextRequest) {
   try {
@@ -53,30 +49,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // uploadsディレクトリが存在しない場合は作成
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    // ファイルをBufferに変換
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Larkファイルタイプを決定
+    // IM File APIは画像を直接サポートしないため、streamタイプを使用
+    let larkFileType: "pdf" | "stream" = "stream";
+    if (file.type === "application/pdf") {
+      larkFileType = "pdf";
     }
 
-    // ユニークなファイルキーを生成
-    const fileExtension = path.extname(file.name).toLowerCase();
-    const fileKey = `${Date.now()}_${crypto.randomBytes(8).toString("hex")}${fileExtension}`;
-    const filePath = path.join(UPLOAD_DIR, fileKey);
+    // ユニークなファイル名を生成
+    const uniqueId = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const originalName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const uniqueFilename = `${uniqueId}_${originalName}`;
 
-    // ファイルを保存
-    const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    console.log(`[Upload API] Uploading to Lark - user: ${authCheck.userId}, file: ${file.name}, type: ${larkFileType}`);
+
+    // Lark IM File APIにアップロード
+    const result = await uploadFileToLark(buffer, uniqueFilename, larkFileType);
+
+    if (!result.success || !result.file_key) {
+      console.error("[Upload API] Lark upload failed");
+      return NextResponse.json(
+        { success: false, error: "Larkへのアップロードに失敗しました" },
+        { status: 500 }
+      );
+    }
 
     // アップロード成功ログ
-    console.log(`[Upload API] Success - user: ${authCheck.userId}, file: ${file.name}, key: ${fileKey}`);
+    console.log(`[Upload API] Success - user: ${authCheck.userId}, file: ${file.name}, lark_key: ${result.file_key}`);
 
     return NextResponse.json({
       success: true,
-      file_key: fileKey,
+      file_key: result.file_key,
       message: "ファイルのアップロードに成功しました",
     });
   } catch (error) {
-    console.error("File upload error:", error);
+    console.error("[Upload API] Error:", error);
     return NextResponse.json(
       {
         success: false,

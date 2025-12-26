@@ -255,10 +255,12 @@ export async function uploadFileToLark(
 /**
  * Larkからファイルをダウンロード
  * @param fileKey ファイルキー
- * @returns ファイルデータ
+ * @returns ファイルデータ（Buffer）
  */
-export async function downloadFileFromLark(fileKey: string) {
+export async function downloadFileFromLark(fileKey: string): Promise<Buffer | null> {
   try {
+    console.log(`[lark-client] downloadFileFromLark - fileKey: ${fileKey}`);
+
     const response = await larkClient.im.file.get({
       path: {
         file_key: fileKey,
@@ -266,10 +268,51 @@ export async function downloadFileFromLark(fileKey: string) {
     });
 
     if (!response) {
-      throw new Error("Lark file download failed");
+      console.error("[lark-client] File download returned null");
+      return null;
     }
 
-    return response;
+    // Lark SDKのレスポンス形式に応じてBufferに変換
+    // @ts-ignore - Lark SDKの型定義が不完全な場合がある
+    if (response.writeFile) {
+      // writeFileメソッドがある場合はストリームを読み取る
+      const chunks: Buffer[] = [];
+      // @ts-ignore
+      for await (const chunk of response) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    }
+
+    // Bufferとして直接返される場合
+    if (Buffer.isBuffer(response)) {
+      return response;
+    }
+
+    // ArrayBufferの場合
+    if (response instanceof ArrayBuffer) {
+      return Buffer.from(response);
+    }
+
+    // ReadableStreamの場合
+    // @ts-ignore
+    if (response.getReader) {
+      // @ts-ignore
+      const reader = response.getReader();
+      const chunks: Uint8Array[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) chunks.push(value);
+      }
+
+      return Buffer.concat(chunks);
+    }
+
+    // その他の場合はそのまま返す
+    console.log(`[lark-client] Response type: ${typeof response}`);
+    return response as Buffer;
   } catch (error) {
     console.error("Error downloading file from Lark:", error);
     throw error;
