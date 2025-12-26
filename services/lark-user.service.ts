@@ -24,6 +24,11 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
 
     console.log('DEBUG searchLarkUsers - Employee records count:', response.data?.items?.length || 0);
 
+    // デバッグ: 最初のレコードのフィールド構造を出力
+    if (response.data?.items?.[0]) {
+      console.log('DEBUG searchLarkUsers - Sample record fields:', JSON.stringify(response.data.items[0].fields, null, 2));
+    }
+
     if (!response.data?.items) {
       console.log('DEBUG searchLarkUsers - No employee data');
       return [];
@@ -43,13 +48,19 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
         name = (nameField.name || "").toLowerCase();
       }
 
-      // メールアドレスの取得
-      const emailField = item.fields[EMPLOYEE_FIELDS.email];
+      // メールアドレスの取得（People フィールドから抽出）
       let email = "";
-      if (typeof emailField === "string") {
-        email = emailField.toLowerCase();
-      } else if (Array.isArray(nameField) && nameField[0]?.email) {
+      // まずPeopleフィールドの配列からメールを取得
+      if (Array.isArray(nameField) && nameField[0]?.email) {
         email = (nameField[0].email || "").toLowerCase();
+      } else {
+        // 直接のメールフィールドをチェック
+        const emailField = item.fields[EMPLOYEE_FIELDS.email];
+        if (typeof emailField === "string") {
+          email = emailField.toLowerCase();
+        } else if (Array.isArray(emailField) && emailField[0]) {
+          email = String(emailField[0]).toLowerCase();
+        }
       }
 
       const employeeId = String(item.fields[EMPLOYEE_FIELDS.employee_id] || "").toLowerCase();
@@ -79,12 +90,18 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
       }
 
       // メールの抽出（Peopleフィールドまたは直接フィールド）
-      const emailField = item.fields[EMPLOYEE_FIELDS.email];
       let extractedEmail = "";
-      if (typeof emailField === "string") {
-        extractedEmail = emailField;
-      } else if (Array.isArray(nameField) && nameField[0]?.email) {
+      // まずPeopleフィールドの配列からメールを取得
+      if (Array.isArray(nameField) && nameField[0]?.email) {
         extractedEmail = nameField[0].email || "";
+      } else {
+        // 直接のメールフィールドをチェック
+        const emailField = item.fields[EMPLOYEE_FIELDS.email];
+        if (typeof emailField === "string") {
+          extractedEmail = emailField;
+        } else if (Array.isArray(emailField) && emailField[0]) {
+          extractedEmail = String(emailField[0]);
+        }
       }
 
       return {
