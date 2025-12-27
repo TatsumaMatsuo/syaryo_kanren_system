@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
-import { uploadFileToLark } from "@/lib/lark-client";
+import { uploadFileToBox } from "@/lib/box-client";
 import crypto from "crypto";
 
 /**
  * ファイルアップロードAPI
  * POST /api/upload
  * 認証済みユーザーのみアップロード可能
- * Lark IM File APIを使用してクラウドストレージに保存
+ * Box APIを使用してクラウドストレージに保存
  */
 export async function POST(request: NextRequest) {
   try {
@@ -52,37 +52,33 @@ export async function POST(request: NextRequest) {
     // ファイルをBufferに変換
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Larkファイルタイプを決定
-    // IM File APIは画像を直接サポートしないため、streamタイプを使用
-    let larkFileType: "pdf" | "stream" = "stream";
-    if (file.type === "application/pdf") {
-      larkFileType = "pdf";
-    }
-
-    // ユニークなファイル名を生成
+    // ユニークなファイル名を生成（Box用）
     const uniqueId = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-    const originalName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const uniqueFilename = `${uniqueId}_${originalName}`;
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const uniqueFilename = `${uniqueId}_${sanitizedName}`;
 
-    console.log(`[Upload API] Uploading to Lark - user: ${authCheck.userId}, file: ${file.name}, type: ${larkFileType}`);
+    console.log(`[Upload API] Uploading to Box - user: ${authCheck.userId}, file: ${file.name}`);
 
-    // Lark IM File APIにアップロード
-    const result = await uploadFileToLark(buffer, uniqueFilename, larkFileType);
+    // Boxにアップロード
+    const result = await uploadFileToBox(buffer, uniqueFilename);
 
-    if (!result.success || !result.file_key) {
-      console.error("[Upload API] Lark upload failed");
+    if (!result.success || !result.file_id) {
+      console.error("[Upload API] Box upload failed:", result.error);
       return NextResponse.json(
-        { success: false, error: "Larkへのアップロードに失敗しました" },
+        { success: false, error: result.error || "Boxへのアップロードに失敗しました" },
         { status: 500 }
       );
     }
 
     // アップロード成功ログ
-    console.log(`[Upload API] Success - user: ${authCheck.userId}, file: ${file.name}, lark_key: ${result.file_key}`);
+    // file_keyは "box_" プレフィックスを付けてBox識別子とする
+    const fileKey = `box_${result.file_id}`;
+    console.log(`[Upload API] Success - user: ${authCheck.userId}, file: ${file.name}, box_id: ${result.file_id}`);
 
     return NextResponse.json({
       success: true,
-      file_key: result.file_key,
+      file_key: fileKey,
       message: "ファイルのアップロードに成功しました",
     });
   } catch (error) {

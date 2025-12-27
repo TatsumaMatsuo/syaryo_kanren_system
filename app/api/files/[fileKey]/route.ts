@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
+import { downloadFileFromBox } from "@/lib/box-client";
 import { downloadFileFromLark } from "@/lib/lark-client";
 import { detectFileType } from "@/lib/file-type-detection";
 import fs from "fs";
@@ -9,18 +10,22 @@ import path from "path";
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 /**
- * Lark file_keyかローカルファイル名かを判定
- * Lark file_keyは通常 "file_xxxxxx" 形式
+ * ファイルキーの種類を判定
  */
-function isLarkFileKey(fileKey: string): boolean {
-  // Larkのfile_keyは "file_" で始まる
-  return fileKey.startsWith("file_");
+function getFileKeyType(fileKey: string): "box" | "lark" | "local" {
+  if (fileKey.startsWith("box_")) {
+    return "box";
+  }
+  if (fileKey.startsWith("file_")) {
+    return "lark";
+  }
+  return "local";
 }
 
 /**
  * GET /api/files/[fileKey]
  *
- * ファイルを取得（Lark IM File API または ローカルストレージから）
+ * ファイルを取得（Box / Lark / ローカルストレージから）
  * 認証済みユーザーのみアクセス可能
  */
 export async function GET(
@@ -46,13 +51,44 @@ export async function GET(
       );
     }
 
-    console.log(`[File API] Request - user: ${authCheck.userId}, fileKey: ${fileKey}`);
+    const keyType = getFileKeyType(fileKey);
+    console.log(`[File API] Request - user: ${authCheck.userId}, fileKey: ${fileKey}, type: ${keyType}`);
 
     let fileBuffer: Buffer;
     let contentType = "application/octet-stream";
 
-    if (isLarkFileKey(fileKey)) {
-      // Lark IM File APIからダウンロード
+    if (keyType === "box") {
+      // Boxからダウンロード
+      const boxFileId = fileKey.replace("box_", "");
+      console.log(`[File API] Fetching from Box - fileId: ${boxFileId}`);
+
+      try {
+        const buffer = await downloadFileFromBox(boxFileId);
+
+        if (!buffer) {
+          console.error(`[File API] Box download returned null - fileKey: ${fileKey}`);
+          return NextResponse.json(
+            { error: "File not found in Box" },
+            { status: 404 }
+          );
+        }
+
+        fileBuffer = buffer;
+
+        // マジックバイトからファイルタイプを検出
+        const detectedType = detectFileType(fileBuffer);
+        contentType = detectedType.mimeType;
+
+        console.log(`[File API] Box file retrieved - size: ${fileBuffer.length}, type: ${contentType}`);
+      } catch (boxError) {
+        console.error(`[File API] Box download error:`, boxError);
+        return NextResponse.json(
+          { error: "Failed to download file from Box" },
+          { status: 500 }
+        );
+      }
+    } else if (keyType === "lark") {
+      // Lark IM File APIからダウンロード（後方互換性）
       console.log(`[File API] Fetching from Lark - fileKey: ${fileKey}`);
 
       try {
