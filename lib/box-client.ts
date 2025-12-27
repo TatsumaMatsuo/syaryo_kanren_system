@@ -181,7 +181,7 @@ export async function uploadFileToBox(
     const stream = Readable.from(buffer);
 
     // Box SDK v3のアップロードAPI
-    const file = await client.uploads.uploadFile({
+    const result = await client.uploads.uploadFile({
       attributes: {
         name: filename,
         parent: { id: folderId },
@@ -189,11 +189,12 @@ export async function uploadFileToBox(
       file: stream,
     });
 
-    if (!file || !file.id) {
+    // レスポンス形式: { entries: [{ id: '...', ... }] }
+    if (!result || !result.entries || !result.entries[0] || !result.entries[0].id) {
       return { success: false, error: "Upload failed - no file ID returned" };
     }
 
-    const fileId = file.id;
+    const fileId = result.entries[0].id;
     console.log(`[box-client] Upload successful - fileId: ${fileId}`);
 
     return {
@@ -211,13 +212,15 @@ export async function uploadFileToBox(
         if (conflictInfo?.id) {
           const existingFileId = conflictInfo.id;
           const stream = Readable.from(buffer);
-          const file = await getBoxClient().uploads.uploadFileVersion({
+          const versionResult = await getBoxClient().uploads.uploadFileVersion({
             fileId: existingFileId,
             file: stream,
           });
+          // レスポンス形式: { entries: [{ id: '...', ... }] }
+          const versionFileId = versionResult?.entries?.[0]?.id || existingFileId;
           return {
             success: true,
-            file_id: file.id,
+            file_id: versionFileId,
           };
         }
       } catch (versionError) {
