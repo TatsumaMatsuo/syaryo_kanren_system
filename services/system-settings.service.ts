@@ -16,6 +16,14 @@ export interface SystemSettings {
   company_postal_code: string;
   company_address: string;
   issuing_department: string;
+  // ファイルストレージ設定
+  file_storage_type: "lark" | "box" | "local";
+  // Box設定
+  box_client_id: string;
+  box_client_secret: string;
+  box_enterprise_id: string;
+  box_folder_id: string;
+  box_developer_token: string;
 }
 
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -27,6 +35,14 @@ const DEFAULT_SETTINGS: SystemSettings = {
   company_postal_code: "",
   company_address: "",
   issuing_department: "",
+  // ファイルストレージ設定
+  file_storage_type: "lark",
+  // Box設定
+  box_client_id: "",
+  box_client_secret: "",
+  box_enterprise_id: "",
+  box_folder_id: "",
+  box_developer_token: "",
 };
 
 // 数値型のキー
@@ -88,6 +104,28 @@ export async function getCompanyInfo(): Promise<{
     company_postal_code: settings.company_postal_code,
     company_address: settings.company_address,
     issuing_department: settings.issuing_department,
+  };
+}
+
+/**
+ * ファイルストレージ設定を取得
+ */
+export async function getFileStorageSettings(): Promise<{
+  storage_type: "lark" | "box" | "local";
+  box_client_id: string;
+  box_client_secret: string;
+  box_enterprise_id: string;
+  box_folder_id: string;
+  box_developer_token: string;
+}> {
+  const settings = await getSystemSettings();
+  return {
+    storage_type: settings.file_storage_type,
+    box_client_id: settings.box_client_id,
+    box_client_secret: settings.box_client_secret,
+    box_enterprise_id: settings.box_enterprise_id,
+    box_folder_id: settings.box_folder_id,
+    box_developer_token: settings.box_developer_token,
   };
 }
 

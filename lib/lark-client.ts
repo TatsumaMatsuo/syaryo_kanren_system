@@ -310,9 +310,22 @@ export async function downloadFileFromLark(fileKey: string): Promise<Buffer | nu
       return Buffer.concat(chunks);
     }
 
-    // その他の場合はそのまま返す
-    console.log(`[lark-client] Response type: ${typeof response}`);
-    return response as Buffer;
+    // Lark SDKのレスポンス形式の場合（getReadableStreamメソッドを持つオブジェクト）
+    // @ts-ignore
+    if (response && typeof response === 'object' && response.getReadableStream) {
+      console.log(`[lark-client] Response has getReadableStream method`);
+      // @ts-ignore
+      const stream = response.getReadableStream();
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    }
+
+    // その他の場合はnullを返す（型安全性のため）
+    console.log(`[lark-client] Unknown response type: ${typeof response}`);
+    return null as unknown as Buffer;
   } catch (error) {
     console.error("Error downloading file from Lark:", error);
     throw error;

@@ -146,7 +146,7 @@ export async function GET(
     // アクセスログ記録
     console.log(`[File API] Access granted - user: ${authCheck.userId}, fileKey: ${fileKey}, type: ${contentType}`);
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(new Uint8Array(fileBuffer), {
       headers: {
         "Content-Type": contentType,
         "Content-Disposition": "inline",

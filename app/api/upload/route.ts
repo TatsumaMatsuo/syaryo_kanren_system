@@ -1,13 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
-import { uploadFileToBox } from "@/lib/box-client";
+import { uploadFileToBox, initializeBoxClientWithConfig } from "@/lib/box-client";
+import { uploadFileToLark } from "@/lib/lark-client";
+import { getFileStorageSettings } from "@/services/system-settings.service";
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
+
+// ローカルファイル保存ディレクトリ
+const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+
+/**
+ * ローカルストレージにファイルを保存
+ */
+async function uploadFileToLocal(
+  buffer: Buffer,
+  filename: string
+): Promise<{ success: boolean; file_key?: string; error?: string }> {
+  try {
+    // アップロードディレクトリが存在しない場合は作成
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+
+    const filePath = path.join(UPLOAD_DIR, filename);
+    fs.writeFileSync(filePath, buffer);
+
+    console.log(`[Upload API] Local file saved: ${filePath}`);
+    return { success: true, file_key: filename };
+  } catch (error: any) {
+    console.error("[Upload API] Local save error:", error);
+    return { success: false, error: error.message || "Failed to save file locally" };
+  }
+}
 
 /**
  * ファイルアップロードAPI
  * POST /api/upload
  * 認証済みユーザーのみアップロード可能
- * Box APIを使用してクラウドストレージに保存
+ * システム設定に応じてBox/Lark/ローカルストレージに保存
  */
 export async function POST(request: NextRequest) {
   try {
@@ -52,33 +83,88 @@ export async function POST(request: NextRequest) {
     // ファイルをBufferに変換
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // ユニークなファイル名を生成（Box用）
+    // ユニークなファイル名を生成
     const uniqueId = `${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-    const extension = file.name.split('.').pop()?.toLowerCase() || 'bin';
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const uniqueFilename = `${uniqueId}_${sanitizedName}`;
 
-    console.log(`[Upload API] Uploading to Box - user: ${authCheck.userId}, file: ${file.name}`);
+    // ストレージ設定を取得
+    const storageSettings = await getFileStorageSettings();
+    const storageType = storageSettings.storage_type;
 
-    // Boxにアップロード
-    const result = await uploadFileToBox(buffer, uniqueFilename);
+    console.log(`[Upload API] Storage type: ${storageType}, user: ${authCheck.userId}, file: ${file.name}`);
 
-    if (!result.success || !result.file_id) {
-      console.error("[Upload API] Box upload failed:", result.error);
-      return NextResponse.json(
-        { success: false, error: result.error || "Boxへのアップロードに失敗しました" },
-        { status: 500 }
-      );
+    let fileKey: string;
+
+    if (storageType === "box") {
+      // Box設定でクライアントを初期化
+      if (storageSettings.box_client_id) {
+        initializeBoxClientWithConfig({
+          clientId: storageSettings.box_client_id,
+          clientSecret: storageSettings.box_client_secret,
+          enterpriseId: storageSettings.box_enterprise_id,
+          folderId: storageSettings.box_folder_id || "0",
+          developerToken: storageSettings.box_developer_token || undefined,
+        });
+      }
+
+      // Boxにアップロード
+      const result = await uploadFileToBox(buffer, uniqueFilename);
+
+      if (!result.success || !result.file_id) {
+        console.error("[Upload API] Box upload failed:", result.error);
+        return NextResponse.json(
+          { success: false, error: result.error || "Boxへのアップロードに失敗しました" },
+          { status: 500 }
+        );
+      }
+
+      fileKey = `box_${result.file_id}`;
+      console.log(`[Upload API] Box upload success - box_id: ${result.file_id}`);
+
+    } else if (storageType === "lark") {
+      // Larkにアップロード
+      try {
+        const result = await uploadFileToLark(buffer, file.name, file.type);
+
+        if (!result.success || !result.file_key) {
+          console.error("[Upload API] Lark upload failed");
+          return NextResponse.json(
+            { success: false, error: "Larkへのアップロードに失敗しました" },
+            { status: 500 }
+          );
+        }
+
+        fileKey = result.file_key;
+        console.log(`[Upload API] Lark upload success - file_key: ${fileKey}`);
+      } catch (larkError: any) {
+        console.error("[Upload API] Lark upload error:", larkError);
+        return NextResponse.json(
+          { success: false, error: larkError.message || "Larkへのアップロードに失敗しました" },
+          { status: 500 }
+        );
+      }
+
+    } else {
+      // ローカルストレージに保存
+      const result = await uploadFileToLocal(buffer, uniqueFilename);
+
+      if (!result.success || !result.file_key) {
+        console.error("[Upload API] Local save failed:", result.error);
+        return NextResponse.json(
+          { success: false, error: result.error || "ローカル保存に失敗しました" },
+          { status: 500 }
+        );
+      }
+
+      fileKey = result.file_key;
+      console.log(`[Upload API] Local save success - file_key: ${fileKey}`);
     }
-
-    // アップロード成功ログ
-    // file_keyは "box_" プレフィックスを付けてBox識別子とする
-    const fileKey = `box_${result.file_id}`;
-    console.log(`[Upload API] Success - user: ${authCheck.userId}, file: ${file.name}, box_id: ${result.file_id}`);
 
     return NextResponse.json({
       success: true,
       file_key: fileKey,
+      storage_type: storageType,
       message: "ファイルのアップロードに成功しました",
     });
   } catch (error) {

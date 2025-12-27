@@ -1,46 +1,124 @@
-import BoxSDK from "box-node-sdk";
+import * as BoxSDKModule from "box-node-sdk";
+
+// CommonJS互換: default exportまたはモジュール自体を使用
+const BoxSDK = (BoxSDKModule as any).default || BoxSDKModule;
 import { Readable } from "stream";
 
 // Box クライアント（遅延初期化）
 let _boxClient: any = null;
+let _boxFolderId: string = "0";
+let _configSource: "env" | "db" = "env";
 
 /**
- * Box認証設定を取得
+ * Box設定の型定義
  */
-function getBoxConfig() {
-  const clientId = process.env.BOX_CLIENT_ID;
-  const clientSecret = process.env.BOX_CLIENT_SECRET;
-  const enterpriseId = process.env.BOX_ENTERPRISE_ID;
-  const publicKeyId = process.env.BOX_PUBLIC_KEY_ID;
-  const privateKey = process.env.BOX_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  const passphrase = process.env.BOX_PASSPHRASE || "";
+export interface BoxConfig {
+  clientId: string;
+  clientSecret: string;
+  enterpriseId: string;
+  folderId: string;
+  developerToken?: string;
+  publicKeyId?: string;
+  privateKey?: string;
+  passphrase?: string;
+}
 
+/**
+ * Box認証設定を環境変数から取得
+ */
+function getBoxConfigFromEnv(): BoxConfig {
   return {
-    clientId,
-    clientSecret,
-    enterpriseId,
-    publicKeyId,
-    privateKey,
-    passphrase,
+    clientId: process.env.BOX_CLIENT_ID || "",
+    clientSecret: process.env.BOX_CLIENT_SECRET || "",
+    enterpriseId: process.env.BOX_ENTERPRISE_ID || "",
+    folderId: process.env.BOX_FOLDER_ID || "0",
+    developerToken: process.env.BOX_DEVELOPER_TOKEN,
+    publicKeyId: process.env.BOX_PUBLIC_KEY_ID,
+    privateKey: process.env.BOX_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    passphrase: process.env.BOX_PASSPHRASE || "",
   };
 }
 
 /**
- * Boxクライアントを取得（JWT認証）
+ * DB設定でBoxクライアントを初期化
+ * @param config DB設定から取得したBox設定
  */
-export function getBoxClient(): any {
-  const config = getBoxConfig();
+export function initializeBoxClientWithConfig(config: BoxConfig): boolean {
+  try {
+    // 既存のクライアントをリセット
+    _boxClient = null;
+    _boxFolderId = config.folderId || "0";
+    _configSource = "db";
 
-  // Developer Token認証（開発用・簡易設定）
-  if (process.env.BOX_DEVELOPER_TOKEN) {
-    if (!_boxClient) {
+    // Developer Token認証（開発用・簡易設定）
+    if (config.developerToken) {
       const sdk = new BoxSDK({
         clientID: config.clientId || "",
         clientSecret: config.clientSecret || "",
       });
-      _boxClient = sdk.getBasicClient(process.env.BOX_DEVELOPER_TOKEN);
-      console.log("[box-client] Initialized with Developer Token");
+      _boxClient = sdk.getBasicClient(config.developerToken);
+      console.log("[box-client] Initialized with Developer Token from DB config");
+      return true;
     }
+
+    // JWT認証（本番用）
+    if (!config.clientId || !config.clientSecret || !config.enterpriseId) {
+      console.error("[box-client] Missing Box configuration from DB");
+      return false;
+    }
+
+    const sdk = BoxSDK.getPreconfiguredInstance({
+      boxAppSettings: {
+        clientID: config.clientId,
+        clientSecret: config.clientSecret,
+        appAuth: {
+          publicKeyID: config.publicKeyId || "",
+          privateKey: config.privateKey || "",
+          passphrase: config.passphrase || "",
+        },
+      },
+      enterpriseID: config.enterpriseId,
+    });
+    _boxClient = sdk.getAppAuthClient("enterprise", config.enterpriseId);
+    console.log("[box-client] Initialized with JWT Auth from DB config");
+    return true;
+  } catch (error) {
+    console.error("[box-client] Failed to initialize with DB config:", error);
+    return false;
+  }
+}
+
+/**
+ * Boxクライアントをリセット（設定変更時に使用）
+ */
+export function resetBoxClient(): void {
+  _boxClient = null;
+  _configSource = "env";
+  console.log("[box-client] Client reset");
+}
+
+/**
+ * Boxクライアントを取得（JWT認証）
+ * DB設定で初期化済みの場合はそれを使用、そうでなければ環境変数から初期化
+ */
+export function getBoxClient(): any {
+  // 既に初期化済みの場合はそのまま返す
+  if (_boxClient) {
+    return _boxClient;
+  }
+
+  // 環境変数から設定を取得して初期化
+  const config = getBoxConfigFromEnv();
+
+  // Developer Token認証（開発用・簡易設定）
+  if (config.developerToken) {
+    const sdk = new BoxSDK({
+      clientID: config.clientId || "",
+      clientSecret: config.clientSecret || "",
+    });
+    _boxClient = sdk.getBasicClient(config.developerToken);
+    _boxFolderId = config.folderId;
+    console.log("[box-client] Initialized with Developer Token from env");
     return _boxClient;
   }
 
@@ -50,26 +128,25 @@ export function getBoxClient(): any {
     return null;
   }
 
-  if (!_boxClient) {
-    try {
-      const sdk = BoxSDK.getPreconfiguredInstance({
-        boxAppSettings: {
-          clientID: config.clientId,
-          clientSecret: config.clientSecret,
-          appAuth: {
-            publicKeyID: config.publicKeyId || "",
-            privateKey: config.privateKey || "",
-            passphrase: config.passphrase,
-          },
+  try {
+    const sdk = BoxSDK.getPreconfiguredInstance({
+      boxAppSettings: {
+        clientID: config.clientId,
+        clientSecret: config.clientSecret,
+        appAuth: {
+          publicKeyID: config.publicKeyId || "",
+          privateKey: config.privateKey || "",
+          passphrase: config.passphrase || "",
         },
-        enterpriseID: config.enterpriseId,
-      });
-      _boxClient = sdk.getAppAuthClient("enterprise", config.enterpriseId);
-      console.log("[box-client] Initialized with JWT Auth");
-    } catch (error) {
-      console.error("[box-client] Failed to initialize:", error);
-      return null;
-    }
+      },
+      enterpriseID: config.enterpriseId,
+    });
+    _boxClient = sdk.getAppAuthClient("enterprise", config.enterpriseId);
+    _boxFolderId = config.folderId;
+    console.log("[box-client] Initialized with JWT Auth from env");
+  } catch (error) {
+    console.error("[box-client] Failed to initialize:", error);
+    return null;
   }
 
   return _boxClient;
@@ -79,7 +156,14 @@ export function getBoxClient(): any {
  * 保存先フォルダIDを取得
  */
 export function getBoxFolderId(): string {
-  return process.env.BOX_FOLDER_ID || "0"; // "0" はルートフォルダ
+  return _boxFolderId || process.env.BOX_FOLDER_ID || "0"; // "0" はルートフォルダ
+}
+
+/**
+ * 現在の設定ソースを取得
+ */
+export function getBoxConfigSource(): "env" | "db" {
+  return _configSource;
 }
 
 /**
