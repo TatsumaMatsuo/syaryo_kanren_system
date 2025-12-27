@@ -1,8 +1,9 @@
-import * as BoxSDKModule from "box-node-sdk";
-
-// CommonJS互換: default exportまたはモジュール自体を使用
-const BoxSDK = (BoxSDKModule as any).default || BoxSDKModule;
 import { Readable } from "stream";
+
+// box-node-sdk v3+ は名前付きエクスポートを使用
+/* eslint-disable */
+const { BoxClient, BoxDeveloperTokenAuth, BoxJwtAuth, JwtConfig } = require("box-node-sdk");
+/* eslint-enable */
 
 // Box クライアント（遅延初期化）
 let _boxClient: any = null;
@@ -52,11 +53,8 @@ export function initializeBoxClientWithConfig(config: BoxConfig): boolean {
 
     // Developer Token認証（開発用・簡易設定）
     if (config.developerToken) {
-      const sdk = new BoxSDK({
-        clientID: config.clientId || "",
-        clientSecret: config.clientSecret || "",
-      });
-      _boxClient = sdk.getBasicClient(config.developerToken);
+      const auth = new BoxDeveloperTokenAuth({ token: config.developerToken });
+      _boxClient = new BoxClient({ auth });
       console.log("[box-client] Initialized with Developer Token from DB config");
       return true;
     }
@@ -67,19 +65,17 @@ export function initializeBoxClientWithConfig(config: BoxConfig): boolean {
       return false;
     }
 
-    const sdk = BoxSDK.getPreconfiguredInstance({
-      boxAppSettings: {
-        clientID: config.clientId,
-        clientSecret: config.clientSecret,
-        appAuth: {
-          publicKeyID: config.publicKeyId || "",
-          privateKey: config.privateKey || "",
-          passphrase: config.passphrase || "",
-        },
-      },
-      enterpriseID: config.enterpriseId,
+    // JWT設定を構築
+    const jwtConfig = new JwtConfig({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      enterpriseId: config.enterpriseId,
+      jwtKeyId: config.publicKeyId || "",
+      privateKey: config.privateKey || "",
+      privateKeyPassphrase: config.passphrase || "",
     });
-    _boxClient = sdk.getAppAuthClient("enterprise", config.enterpriseId);
+    const auth = new BoxJwtAuth({ config: jwtConfig });
+    _boxClient = new BoxClient({ auth });
     console.log("[box-client] Initialized with JWT Auth from DB config");
     return true;
   } catch (error) {
@@ -112,11 +108,8 @@ export function getBoxClient(): any {
 
   // Developer Token認証（開発用・簡易設定）
   if (config.developerToken) {
-    const sdk = new BoxSDK({
-      clientID: config.clientId || "",
-      clientSecret: config.clientSecret || "",
-    });
-    _boxClient = sdk.getBasicClient(config.developerToken);
+    const auth = new BoxDeveloperTokenAuth({ token: config.developerToken });
+    _boxClient = new BoxClient({ auth });
     _boxFolderId = config.folderId;
     console.log("[box-client] Initialized with Developer Token from env");
     return _boxClient;
@@ -129,19 +122,17 @@ export function getBoxClient(): any {
   }
 
   try {
-    const sdk = BoxSDK.getPreconfiguredInstance({
-      boxAppSettings: {
-        clientID: config.clientId,
-        clientSecret: config.clientSecret,
-        appAuth: {
-          publicKeyID: config.publicKeyId || "",
-          privateKey: config.privateKey || "",
-          passphrase: config.passphrase || "",
-        },
-      },
-      enterpriseID: config.enterpriseId,
+    // JWT設定を構築
+    const jwtConfig = new JwtConfig({
+      clientId: config.clientId,
+      clientSecret: config.clientSecret,
+      enterpriseId: config.enterpriseId,
+      jwtKeyId: config.publicKeyId || "",
+      privateKey: config.privateKey || "",
+      privateKeyPassphrase: config.passphrase || "",
     });
-    _boxClient = sdk.getAppAuthClient("enterprise", config.enterpriseId);
+    const auth = new BoxJwtAuth({ config: jwtConfig });
+    _boxClient = new BoxClient({ auth });
     _boxFolderId = config.folderId;
     console.log("[box-client] Initialized with JWT Auth from env");
   } catch (error) {
@@ -189,14 +180,20 @@ export async function uploadFileToBox(
     // BufferをReadable Streamに変換
     const stream = Readable.from(buffer);
 
-    // ファイルをアップロード
-    const file = await client.files.uploadFile(folderId, filename, stream);
+    // Box SDK v3のアップロードAPI
+    const file = await client.uploads.uploadFile({
+      attributes: {
+        name: filename,
+        parent: { id: folderId },
+      },
+      file: stream,
+    });
 
-    if (!file || !file.entries || !file.entries[0]) {
+    if (!file || !file.id) {
       return { success: false, error: "Upload failed - no file ID returned" };
     }
 
-    const fileId = file.entries[0].id;
+    const fileId = file.id;
     console.log(`[box-client] Upload successful - fileId: ${fileId}`);
 
     return {
@@ -207,15 +204,22 @@ export async function uploadFileToBox(
     console.error("[box-client] Upload error:", error);
 
     // 同名ファイルが存在する場合は新バージョンとしてアップロード
-    if (error.statusCode === 409 && error.response?.body?.context_info?.conflicts) {
-      const existingFileId = error.response.body.context_info.conflicts.id;
+    if (error.statusCode === 409 || error.message?.includes("item_name_in_use")) {
       try {
-        const stream = Readable.from(buffer);
-        const file = await getBoxClient().files.uploadNewFileVersion(existingFileId, stream);
-        return {
-          success: true,
-          file_id: file.entries[0].id,
-        };
+        // エラーからファイルIDを取得
+        const conflictInfo = error.context_info?.conflicts || error.response?.body?.context_info?.conflicts;
+        if (conflictInfo?.id) {
+          const existingFileId = conflictInfo.id;
+          const stream = Readable.from(buffer);
+          const file = await getBoxClient().uploads.uploadFileVersion({
+            fileId: existingFileId,
+            file: stream,
+          });
+          return {
+            success: true,
+            file_id: file.id,
+          };
+        }
       } catch (versionError) {
         console.error("[box-client] Version upload error:", versionError);
         return { success: false, error: "Failed to upload new version" };
@@ -244,19 +248,35 @@ export async function downloadFileFromBox(fileId: string): Promise<Buffer | null
 
     console.log(`[box-client] Downloading file: ${fileId}`);
 
-    // ファイルをダウンロード（ReadableStreamを取得）
-    const stream = await client.files.getReadStream(fileId);
+    // Box SDK v3のダウンロードAPI
+    const response = await client.downloads.downloadFile(fileId);
 
-    // Streamをバッファに変換
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(Buffer.from(chunk));
+    // レスポンスをBufferに変換
+    if (Buffer.isBuffer(response)) {
+      console.log(`[box-client] Download successful - size: ${response.length}`);
+      return response;
     }
 
-    const buffer = Buffer.concat(chunks);
-    console.log(`[box-client] Download successful - size: ${buffer.length}`);
+    // ReadableStreamの場合
+    if (response && typeof response[Symbol.asyncIterator] === 'function') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of response) {
+        chunks.push(Buffer.from(chunk));
+      }
+      const buffer = Buffer.concat(chunks);
+      console.log(`[box-client] Download successful - size: ${buffer.length}`);
+      return buffer;
+    }
 
-    return buffer;
+    // ArrayBufferの場合
+    if (response instanceof ArrayBuffer) {
+      const buffer = Buffer.from(response);
+      console.log(`[box-client] Download successful - size: ${buffer.length}`);
+      return buffer;
+    }
+
+    console.error("[box-client] Unknown response type:", typeof response);
+    return null;
   } catch (error) {
     console.error("[box-client] Download error:", error);
     return null;
@@ -275,13 +295,15 @@ export async function getBoxFileSharedLink(fileId: string): Promise<string | nul
       return null;
     }
 
-    const file = await client.files.update(fileId, {
+    // Box SDK v3のファイル更新API
+    const file = await client.sharedLinks.files.addShareLink(fileId, {
       shared_link: {
         access: "open",
       },
+      fields: ["shared_link"],
     });
 
-    return file.shared_link?.url || null;
+    return file.sharedLink?.url || null;
   } catch (error) {
     console.error("[box-client] Failed to get shared link:", error);
     return null;
@@ -299,7 +321,8 @@ export async function deleteBoxFile(fileId: string): Promise<boolean> {
       return false;
     }
 
-    await client.files.delete(fileId);
+    // Box SDK v3のファイル削除API
+    await client.files.deleteFileById(fileId);
     console.log(`[box-client] File deleted: ${fileId}`);
     return true;
   } catch (error) {

@@ -98,13 +98,20 @@ export async function POST(request: NextRequest) {
 
     if (storageType === "box") {
       // Box設定でクライアントを初期化
-      if (storageSettings.box_client_id) {
+      // 環境変数のトークンを優先（開発時に便利）
+      const envToken = process.env.BOX_DEVELOPER_TOKEN;
+      const dbToken = storageSettings.box_developer_token;
+      const developerToken = (envToken && envToken !== "your_developer_token_here") ? envToken : dbToken;
+
+      console.log(`[Upload API] Token source: env=${envToken ? "set" : "empty"}, db=${dbToken ? "set" : "empty"}, using=${developerToken ? developerToken.substring(0, 8) + "..." : "none"}`);
+
+      if (storageSettings.box_client_id || developerToken) {
         initializeBoxClientWithConfig({
           clientId: storageSettings.box_client_id,
           clientSecret: storageSettings.box_client_secret,
           enterpriseId: storageSettings.box_enterprise_id,
-          folderId: storageSettings.box_folder_id || "0",
-          developerToken: storageSettings.box_developer_token || undefined,
+          folderId: storageSettings.box_folder_id || process.env.BOX_FOLDER_ID || "0",
+          developerToken: developerToken || undefined,
         });
       }
 
