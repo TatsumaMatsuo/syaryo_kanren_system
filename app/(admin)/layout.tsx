@@ -14,6 +14,8 @@ import {
   Search,
   BadgeCheck,
   UserPlus,
+  Download,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -57,6 +59,18 @@ export default function AdminLayout({
       href: "/admin/history",
       icon: History,
       color: "text-amber-600",
+    },
+    {
+      name: "分析ダッシュボード",
+      href: "/admin/analytics",
+      icon: BarChart3,
+      color: "text-purple-600",
+    },
+    {
+      name: "エクスポート",
+      href: "/admin/export",
+      icon: Download,
+      color: "text-green-600",
     },
     {
       name: "有効期限監視",
