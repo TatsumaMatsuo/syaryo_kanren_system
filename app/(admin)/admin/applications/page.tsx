@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ApplicationOverview } from "@/types";
-import { CheckCircle, XCircle, Clock, FileText, Car, Shield, Eye, X, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Clock, FileText, Car, Shield, Eye, X, ExternalLink, CheckSquare, Square } from "lucide-react";
 import { useToast, ToastContainer } from "@/components/ui/toast";
 import { FileViewer } from "@/components/ui/file-viewer";
+
+// 一括承認用の型定義
+interface BulkApprovalItem {
+  id: string;
+  type: "license" | "vehicle" | "insurance";
+}
 
 export default function AdminApplicationsPage() {
   const { data: session, status } = useSession();
@@ -23,6 +29,10 @@ export default function AdminApplicationsPage() {
     imageUrl: string | null;
     title: string;
   }>({ show: false, imageUrl: null, title: "" });
+
+  // 一括承認用の選択状態
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
+  const [bulkApproving, setBulkApproving] = useState(false);
 
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
@@ -116,6 +126,96 @@ export default function AdminApplicationsPage() {
       pending: docs.filter(s => s === "pending").length,
       total: docs.length
     };
+  };
+
+  // 承認待ちのある申請のみフィルタ
+  const applicationsWithPending = useMemo(() => {
+    return applications.filter(app => getApprovalSummary(app).pending > 0);
+  }, [applications]);
+
+  // 全選択/解除
+  const handleSelectAll = () => {
+    if (selectedEmployeeIds.size === applicationsWithPending.length) {
+      setSelectedEmployeeIds(new Set());
+    } else {
+      setSelectedEmployeeIds(new Set(applicationsWithPending.map(app => app.employee.employee_id)));
+    }
+  };
+
+  // 個別選択/解除
+  const handleSelectEmployee = (employeeId: string) => {
+    const newSelected = new Set(selectedEmployeeIds);
+    if (newSelected.has(employeeId)) {
+      newSelected.delete(employeeId);
+    } else {
+      newSelected.add(employeeId);
+    }
+    setSelectedEmployeeIds(newSelected);
+  };
+
+  // 選択された申請の承認待ち書類を全て取得
+  const getSelectedPendingItems = (): BulkApprovalItem[] => {
+    const items: BulkApprovalItem[] = [];
+    applications.forEach(app => {
+      if (!selectedEmployeeIds.has(app.employee.employee_id)) return;
+
+      if (app.license?.approval_status === "pending") {
+        items.push({ id: app.license.id, type: "license" });
+      }
+      app.vehicles.forEach(v => {
+        if (v.approval_status === "pending") {
+          items.push({ id: v.id, type: "vehicle" });
+        }
+      });
+      app.insurances.forEach(ins => {
+        if (ins.approval_status === "pending") {
+          items.push({ id: ins.id, type: "insurance" });
+        }
+      });
+    });
+    return items;
+  };
+
+  // 一括承認実行
+  const handleBulkApprove = async () => {
+    const items = getSelectedPendingItems();
+    if (items.length === 0) {
+      toast.error("承認待ちの書類がありません");
+      return;
+    }
+
+    if (!confirm(`選択された${selectedEmployeeIds.size}名の承認待ち書類（計${items.length}件）を一括承認しますか？`)) {
+      return;
+    }
+
+    setBulkApproving(true);
+    try {
+      const response = await fetch("/api/approvals/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, action: "approve" }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(result.message);
+        setSelectedEmployeeIds(new Set());
+        fetchApplications();
+      } else {
+        toast.error(result.error || "一括承認に失敗しました");
+      }
+    } catch (error) {
+      console.error("Bulk approval failed:", error);
+      toast.error("一括承認に失敗しました");
+    } finally {
+      setBulkApproving(false);
+    }
+  };
+
+  // 選択クリア
+  const clearSelection = () => {
+    setSelectedEmployeeIds(new Set());
   };
 
   const handleApprove = async (app: ApplicationOverview) => {
@@ -231,6 +331,59 @@ export default function AdminApplicationsPage() {
         </div>
       </div>
 
+      {/* 一括承認バー */}
+      {applicationsWithPending.length > 0 && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSelectAll}
+                className="flex items-center gap-2 text-sm text-blue-700 hover:text-blue-900 transition-colors"
+              >
+                {selectedEmployeeIds.size === applicationsWithPending.length ? (
+                  <CheckSquare className="h-5 w-5" />
+                ) : (
+                  <Square className="h-5 w-5" />
+                )}
+                {selectedEmployeeIds.size === applicationsWithPending.length ? "全解除" : "全選択"}
+              </button>
+              {selectedEmployeeIds.size > 0 && (
+                <span className="text-sm text-blue-700">
+                  {selectedEmployeeIds.size}名選択中（書類 {getSelectedPendingItems().length}件）
+                </span>
+              )}
+            </div>
+            {selectedEmployeeIds.size > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  選択解除
+                </button>
+                <button
+                  onClick={handleBulkApprove}
+                  disabled={bulkApproving}
+                  className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {bulkApproving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      処理中...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      一括承認
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 申請一覧 */}
       <div>
         {error && (
@@ -252,18 +405,37 @@ export default function AdminApplicationsPage() {
           <div className="space-y-4">
             {applications.map((app) => {
               const summary = getApprovalSummary(app);
+              const isSelected = selectedEmployeeIds.has(app.employee.employee_id);
+              const hasPending = summary.pending > 0;
               return (
-                <div key={app.employee.employee_id} className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div
+                  key={app.employee.employee_id}
+                  className={`bg-white rounded-lg shadow p-4 sm:p-6 ${isSelected ? "ring-2 ring-blue-500" : ""}`}
+                >
                   {/* 社員情報 */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {app.employee.employee_name}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        社員ID: {app.employee.employee_id} | {app.employee.department}
-                      </p>
-                      <div className="mt-2">
+                    <div className="flex items-start gap-3">
+                      {/* チェックボックス */}
+                      {hasPending && (
+                        <button
+                          onClick={() => handleSelectEmployee(app.employee.employee_id)}
+                          className="mt-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
+                          ) : (
+                            <Square className="h-5 w-5" />
+                          )}
+                        </button>
+                      )}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {app.employee.employee_name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          社員ID: {app.employee.employee_id} | {app.employee.department}
+                        </p>
+                        <div className="mt-2">
                         {summary.total === 0 ? (
                           <span className="text-xs text-gray-500">書類なし</span>
                         ) : summary.approved === summary.total ? (
@@ -276,6 +448,7 @@ export default function AdminApplicationsPage() {
                             承認: {summary.approved} / 審査中: {summary.pending} / 却下: {summary.rejected} （計{summary.total}件）
                           </span>
                         )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
