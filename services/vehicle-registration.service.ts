@@ -49,8 +49,13 @@ export async function getVehicleRegistrations(
         status: item.fields[VEHICLE_REGISTRATION_FIELDS.status],
         approval_status: item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status],
         rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.created_at]),
-        updated_at: new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.updated_at]),
+        // registration_dateをcreated_atとして使用（Larkテーブルにcreated_at/updated_atがない）
+        created_at: item.fields[VEHICLE_REGISTRATION_FIELDS.registration_date]
+          ? new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.registration_date])
+          : new Date(),
+        updated_at: item.fields[VEHICLE_REGISTRATION_FIELDS.registration_date]
+          ? new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.registration_date])
+          : new Date(),
         deleted_flag: item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_flag] || false,
         deleted_at: item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_at]
           ? new Date(item.fields[VEHICLE_REGISTRATION_FIELDS.deleted_at])

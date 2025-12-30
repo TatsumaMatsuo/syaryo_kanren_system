@@ -35,8 +35,12 @@ export async function getDriversLicenses(employeeId?: string): Promise<DriversLi
         status: item.fields[DRIVERS_LICENSE_FIELDS.status],
         approval_status: item.fields[DRIVERS_LICENSE_FIELDS.approval_status],
         rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at]),
-        updated_at: new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at]),
+        created_at: item.fields[DRIVERS_LICENSE_FIELDS.created_at]
+          ? new Date(item.fields[DRIVERS_LICENSE_FIELDS.created_at])
+          : new Date(),
+        updated_at: item.fields[DRIVERS_LICENSE_FIELDS.updated_at]
+          ? new Date(item.fields[DRIVERS_LICENSE_FIELDS.updated_at])
+          : new Date(),
         deleted_flag: item.fields[DRIVERS_LICENSE_FIELDS.deleted_flag] || false,
         deleted_at: item.fields[DRIVERS_LICENSE_FIELDS.deleted_at]
           ? new Date(item.fields[DRIVERS_LICENSE_FIELDS.deleted_at])

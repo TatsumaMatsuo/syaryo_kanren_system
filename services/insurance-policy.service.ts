@@ -46,8 +46,13 @@ export async function getInsurancePolicies(employeeId?: string): Promise<Insuran
         status: item.fields[INSURANCE_POLICY_FIELDS.status],
         approval_status: item.fields[INSURANCE_POLICY_FIELDS.approval_status],
         rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
-        created_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at]),
-        updated_at: new Date(item.fields[INSURANCE_POLICY_FIELDS.updated_at]),
+        created_at: item.fields[INSURANCE_POLICY_FIELDS.created_at]
+          ? new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at])
+          : new Date(),
+        // Larkテーブルにupdated_atがないため、created_atを使用
+        updated_at: item.fields[INSURANCE_POLICY_FIELDS.created_at]
+          ? new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at])
+          : new Date(),
         deleted_flag: item.fields[INSURANCE_POLICY_FIELDS.deleted_flag] || false,
         deleted_at: item.fields[INSURANCE_POLICY_FIELDS.deleted_at]
           ? new Date(item.fields[INSURANCE_POLICY_FIELDS.deleted_at])
