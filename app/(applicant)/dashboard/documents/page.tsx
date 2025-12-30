@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Plus,
 } from "lucide-react";
+import { SimpleFilePreview } from "@/components/ui/file-viewer";
 
 interface DocumentData {
   id: string;
@@ -146,12 +147,6 @@ export default function MyDocumentsPage() {
     if (!dateStr) return false;
     const date = new Date(dateStr);
     return date < new Date();
-  };
-
-  // ファイルがPDFかどうかを判定
-  const isPdfFile = (url: string | undefined) => {
-    if (!url) return false;
-    return url.toLowerCase().endsWith('.pdf');
   };
 
   const getSelectedDocument = (): DocumentData | null => {
@@ -390,29 +385,27 @@ export default function MyDocumentsPage() {
                 {!selectedDoc && "書類プレビュー"}
               </h3>
             </div>
-            <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
+            <div className="aspect-[4/3] bg-gray-100">
               {currentDoc?.image_url ? (
-                isPdfFile(currentDoc.image_url) ? (
-                  <iframe
-                    src={`/api/files/${currentDoc.image_url}`}
-                    className="w-full h-full"
-                    title="書類PDF"
-                  />
-                ) : (
-                  <img
-                    src={`/api/files/${currentDoc.image_url}`}
-                    alt="書類画像"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                )
+                <SimpleFilePreview
+                  fileKey={currentDoc.image_url}
+                  title={
+                    selectedDoc?.type === "license" ? "運転免許証" :
+                    selectedDoc?.type === "vehicle" ? "車検証" :
+                    "任意保険証"
+                  }
+                  className="w-full h-full"
+                />
               ) : (
-                <div className="text-center text-gray-400">
-                  <FileText className="h-16 w-16 mx-auto mb-2" />
-                  <p>
-                    {selectedDoc
-                      ? "画像がアップロードされていません"
-                      : "左の書類を選択してください"}
-                  </p>
+                <div className="w-full h-full flex items-center justify-center text-center text-gray-400">
+                  <div>
+                    <FileText className="h-16 w-16 mx-auto mb-2" />
+                    <p>
+                      {selectedDoc
+                        ? "画像がアップロードされていません"
+                        : "左の書類を選択してください"}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

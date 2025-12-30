@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Search, FileText, Car, Shield, User, Calendar, CheckCircle, XCircle, Clock, Image as ImageIcon } from "lucide-react";
 import { LarkUser, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
+import { FileViewer } from "@/components/ui/file-viewer";
+import { useFileType, getFileApiUrl } from "@/hooks/useFileType";
 
 interface UserDocuments {
   license: DriversLicense | null;
@@ -72,16 +74,9 @@ export default function SearchPage() {
     }
   };
 
-  // PDFかどうかを判定
-  const isPdf = (url: string | undefined) => {
-    if (!url) return false;
-    return url.toLowerCase().endsWith('.pdf');
-  };
-
-  // 画像URLを取得（/api/files/プレフィックス付き）
+  // 画像URLの取得（ファイルキーからAPI URLを生成）
   const getImageUrl = (fileKey: string | undefined) => {
-    if (!fileKey) return null;
-    return `/api/files/${fileKey}`;
+    return getFileApiUrl(fileKey);
   };
 
   // ステータスバッジ
@@ -256,27 +251,17 @@ export default function SearchPage() {
                       </div>
                     </div>
                     {documents.license.image_url && (
-                      <div>
-                        <button
-                          onClick={() => setSelectedImage(getImageUrl(documents.license!.image_url))}
-                          className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
-                        >
-                          {isPdf(documents.license.image_url) ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
-                              <FileText className="w-12 h-12 text-red-500" />
-                              <span className="text-xs text-gray-600 mt-2">PDF</span>
-                            </div>
-                          ) : (
-                            <img
-                              src={getImageUrl(documents.license.image_url) || ""}
-                              alt="免許証"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all">
-                            <ImageIcon className="w-8 h-8 text-white opacity-0 hover:opacity-100" />
-                          </div>
-                        </button>
+                      <div className="relative h-40 border rounded-lg overflow-hidden">
+                        <FileViewer
+                          fileKey={documents.license.image_url}
+                          title="免許証"
+                          compact={true}
+                          heightClass="h-full"
+                          onClick={() => setSelectedImage(documents.license!.image_url)}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all pointer-events-none">
+                          <ImageIcon className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -331,27 +316,14 @@ export default function SearchPage() {
                       </div>
                     </div>
                     {documents.vehicle.image_url && (
-                      <div>
-                        <button
-                          onClick={() => setSelectedImage(getImageUrl(documents.vehicle!.image_url))}
-                          className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
-                        >
-                          {isPdf(documents.vehicle.image_url) ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
-                              <FileText className="w-12 h-12 text-red-500" />
-                              <span className="text-xs text-gray-600 mt-2">PDF</span>
-                            </div>
-                          ) : (
-                            <img
-                              src={getImageUrl(documents.vehicle.image_url) || ""}
-                              alt="車検証"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all">
-                            <ImageIcon className="w-8 h-8 text-white opacity-0 hover:opacity-100" />
-                          </div>
-                        </button>
+                      <div className="relative h-40 border rounded-lg overflow-hidden">
+                        <FileViewer
+                          fileKey={documents.vehicle.image_url}
+                          title="車検証"
+                          compact={true}
+                          heightClass="h-full"
+                          onClick={() => setSelectedImage(documents.vehicle!.image_url)}
+                        />
                       </div>
                     )}
                   </div>
@@ -409,27 +381,14 @@ export default function SearchPage() {
                         </div>
                       </div>
                       {documents.insurance.image_url && (
-                        <div>
-                          <button
-                            onClick={() => setSelectedImage(getImageUrl(documents.insurance!.image_url))}
-                            className="relative w-full h-40 border rounded-lg overflow-hidden hover:opacity-75 transition-opacity"
-                          >
-                            {isPdf(documents.insurance.image_url) ? (
-                              <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
-                                <FileText className="w-12 h-12 text-red-500" />
-                                <span className="text-xs text-gray-600 mt-2">PDF</span>
-                              </div>
-                            ) : (
-                              <img
-                                src={getImageUrl(documents.insurance.image_url) || ""}
-                                alt="保険証"
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all">
-                              <ImageIcon className="w-8 h-8 text-white opacity-0 hover:opacity-100" />
-                            </div>
-                          </button>
+                        <div className="relative h-40 border rounded-lg overflow-hidden">
+                          <FileViewer
+                            fileKey={documents.insurance.image_url}
+                            title="任意保険証"
+                            compact={true}
+                            heightClass="h-full"
+                            onClick={() => setSelectedImage(documents.insurance!.image_url)}
+                          />
                         </div>
                       )}
                     </div>
@@ -515,23 +474,29 @@ export default function SearchPage() {
       {/* 画像/PDFモーダル */}
       {selectedImage && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedImage(null)}
         >
-          <div className="max-w-4xl max-h-screen p-4" onClick={(e) => e.stopPropagation()}>
-            {isPdf(selectedImage) ? (
-              <iframe
-                src={selectedImage}
-                className="w-[80vw] h-[80vh] bg-white"
-                title="書類PDF"
+          <div
+            className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end p-2 border-b">
+              <button
+                onClick={() => setSelectedImage(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-[80vh]">
+              <FileViewer
+                fileKey={selectedImage}
+                title="書類"
+                showControls={true}
+                bgClass="bg-gray-100"
               />
-            ) : (
-              <img
-                src={selectedImage}
-                alt="書類画像"
-                className="max-w-full max-h-screen object-contain"
-              />
-            )}
+            </div>
           </div>
         </div>
       )}

@@ -40,9 +40,10 @@ describe("notification-history.service", () => {
         data: {
           record: {
             record_id: "rec123",
+            fields: {},
           },
         },
-      });
+      } as ReturnType<typeof createBaseRecord> extends Promise<infer T> ? T : never);
 
       const result = await createNotificationHistory({
         recipient_id: "user1",
@@ -65,9 +66,9 @@ describe("notification-history.service", () => {
     it("24時間以内に同じ通知がある場合はtrueを返す", async () => {
       vi.mocked(getBaseRecords).mockResolvedValue({
         data: {
-          items: [{ record_id: "existing" }],
+          items: [{ record_id: "existing", fields: {} }],
         },
-      });
+      } as ReturnType<typeof getBaseRecords> extends Promise<infer T> ? T : never);
 
       const result = await isDuplicateNotification(
         "user1",

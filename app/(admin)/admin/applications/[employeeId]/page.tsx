@@ -30,8 +30,8 @@ interface SelectedDocument {
   index: number; // vehicles/insurances の場合のインデックス
 }
 
-// ファイル拡張子からPDFかどうかを判定
-function isPdfFile(filename: string | undefined): boolean {
+// ファイル拡張子からPDFかどうかを判定（後方互換性のため残す）
+function isPdfFileByExtension(filename: string | undefined): boolean {
   if (!filename) return false;
   const ext = filename.toLowerCase().split('.').pop();
   return ext === 'pdf';
@@ -52,16 +52,45 @@ export default function ApplicationDetailPage() {
   const [rejectTarget, setRejectTarget] = useState<{ category: DocumentCategory; index: number } | "all">("all");
   const [processing, setProcessing] = useState(false);
   const [imageRotation, setImageRotation] = useState(0);
+  const [fileContentType, setFileContentType] = useState<string | null>(null);
 
   // 画像回転
   const rotateImage = (degrees: number) => {
     setImageRotation((prev) => (prev + degrees + 360) % 360);
   };
 
-  // ドキュメント切り替え時に回転をリセット
+  // ドキュメント切り替え時に回転をリセットし、ファイルタイプを検出
   useEffect(() => {
     setImageRotation(0);
-  }, [selectedDoc]);
+    setFileContentType(null);
+
+    // 現在のドキュメントのimage_urlを取得
+    const getImageUrl = () => {
+      if (!application) return null;
+      switch (selectedDoc.category) {
+        case "license":
+          return application.license?.image_url;
+        case "vehicle":
+          return application.vehicles[selectedDoc.index]?.image_url;
+        case "insurance":
+          return application.insurances[selectedDoc.index]?.image_url;
+      }
+    };
+
+    const imageUrl = getImageUrl();
+    if (imageUrl) {
+      // HEADリクエストでContent-Typeを取得
+      fetch(`/api/files/${imageUrl}`, { method: 'HEAD' })
+        .then(response => {
+          const contentType = response.headers.get('Content-Type');
+          setFileContentType(contentType);
+        })
+        .catch(err => {
+          console.error('Failed to detect file type:', err);
+          setFileContentType(null);
+        });
+    }
+  }, [selectedDoc, application]);
 
   // 未認証の場合はログインページにリダイレクト
   useEffect(() => {
@@ -311,10 +340,14 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  // PDFかどうかを判定
-  const isPdfFile = (url: string | undefined) => {
-    if (!url) return false;
-    return url.toLowerCase().endsWith('.pdf');
+  // PDFかどうかを判定（Content-Typeベース）
+  const isPdfFile = () => {
+    if (fileContentType) {
+      return fileContentType.includes('application/pdf');
+    }
+    // Content-Typeが取得できない場合は拡張子で判定（後方互換性）
+    const currentDoc = getCurrentDocument();
+    return isPdfFileByExtension(currentDoc?.image_url);
   };
 
   // ローディング中
@@ -781,7 +814,7 @@ export default function ApplicationDetailPage() {
         <div className="w-1/2 bg-gray-900 flex flex-col">
           {currentDoc?.image_url ? (
             // PDFの場合はPDFビューアを表示
-            isPdfFile(currentDoc.image_url) ? (
+            isPdfFile() ? (
               <PDFViewer
                 fileUrl={`/api/files/${currentDoc.image_url}`}
                 title={getDocumentTitle()}
@@ -816,7 +849,7 @@ export default function ApplicationDetailPage() {
 
                 {/* 画像/PDF表示エリア */}
                 <div className="flex-1 relative bg-gray-900">
-                  {isPdfFile(currentDoc.image_url) ? (
+                  {isPdfFile() ? (
                     <>
                       {/* PDFダウンロードボタン */}
                       <div className="absolute top-4 right-4 z-10">

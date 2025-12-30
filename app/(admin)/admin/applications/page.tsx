@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ApplicationOverview } from "@/types";
 import { CheckCircle, XCircle, Clock, FileText, Car, Shield, Eye, X, ExternalLink } from "lucide-react";
 import { useToast, ToastContainer } from "@/components/ui/toast";
+import { FileViewer } from "@/components/ui/file-viewer";
 
 export default function AdminApplicationsPage() {
   const { data: session, status } = useSession();
@@ -155,10 +156,10 @@ export default function AdminApplicationsPage() {
     setShowRejectModal(true);
   };
 
-  const handleViewImage = (imageUrl: string, title: string) => {
+  const handleViewImage = (fileKey: string, title: string) => {
     setImagePreview({
       show: true,
-      imageUrl: `/api/files/${imageUrl}`,
+      imageUrl: fileKey, // fileKeyを渡す（URLではなく）
       title,
     });
   };
@@ -461,7 +462,7 @@ export default function AdminApplicationsPage() {
       {/* 画像プレビューモーダル */}
       {imagePreview.show && (
         <ImagePreviewModal
-          imageUrl={imagePreview.imageUrl}
+          fileKey={imagePreview.imageUrl}
           title={imagePreview.title}
           onClose={closeImagePreview}
         />
@@ -585,20 +586,14 @@ function RejectModal({
 }
 
 function ImagePreviewModal({
-  imageUrl,
+  fileKey,
   title,
   onClose,
 }: {
-  imageUrl: string | null;
+  fileKey: string | null;
   title: string;
   onClose: () => void;
 }) {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  // PDFかどうかを判定
-  const isPdf = imageUrl?.toLowerCase().endsWith('.pdf');
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -614,39 +609,13 @@ function ImagePreviewModal({
         </div>
 
         {/* 画像/PDFコンテンツ */}
-        <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-50">
-          {loading && !error && !isPdf && (
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">画像を読み込み中...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="text-center">
-              <XCircle className="h-12 w-12 text-red-500 mx-auto" />
-              <p className="mt-4 text-red-600">ファイルの読み込みに失敗しました</p>
-            </div>
-          )}
-
-          {imageUrl && isPdf ? (
-            <iframe
-              src={imageUrl}
-              className="w-full h-[70vh]"
-              title={title}
-            />
-          ) : imageUrl && (
-            <img
-              src={imageUrl}
-              alt={title}
-              className={`max-w-full max-h-full object-contain ${loading ? "hidden" : ""}`}
-              onLoad={() => setLoading(false)}
-              onError={() => {
-                setLoading(false);
-                setError(true);
-              }}
-            />
-          )}
+        <div className="h-[70vh]">
+          <FileViewer
+            fileKey={fileKey}
+            title={title}
+            showControls={true}
+            bgClass="bg-gray-100"
+          />
         </div>
 
         {/* フッター */}
