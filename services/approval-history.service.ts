@@ -181,3 +181,12 @@ export function getActionName(action: ApprovalAction): string {
   };
   return actionNames[action] || action;
 }
+
+/**
+ * 特定の社員の承認履歴を取得
+ */
+export async function getApprovalHistoryByEmployee(
+  employeeId: string
+): Promise<ApprovalHistoryRecord[]> {
+  return getApprovalHistory({ employee_id: employeeId });
+}
