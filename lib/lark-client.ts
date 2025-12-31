@@ -254,7 +254,7 @@ export async function uploadFileToLark(
       data: {
         file_type: larkFileType,
         file_name: filename,
-        file: stream,
+        file: stream as any, // ReadableをLark SDKの型に適合させる
       },
     });
 
