@@ -137,20 +137,47 @@ export async function getApprovalHistory(
       approver_id: item.fields[APPROVAL_HISTORY_FIELDS.approver_id] || "",
       approver_name: extractName(item.fields[APPROVAL_HISTORY_FIELDS.approver_name]),
       reason: item.fields[APPROVAL_HISTORY_FIELDS.reason] || "",
-      timestamp: item.fields[APPROVAL_HISTORY_FIELDS.timestamp],
-      created_at: item.fields[APPROVAL_HISTORY_FIELDS.created_at],
+      timestamp: Number(item.fields[APPROVAL_HISTORY_FIELDS.timestamp]) || Date.now(),
+      created_at: Number(item.fields[APPROVAL_HISTORY_FIELDS.created_at]) || Date.now(),
     }));
 
-    // 名前が空の場合、社員マスタから取得
+    // 名前が空の場合、社員マスタから取得（並列処理で高速化）
     const { getEmployee } = await import("./employee.service");
-    for (const record of records) {
-      if (!record.employee_name && record.employee_id) {
-        const employee = await getEmployee(record.employee_id);
+    const recordsNeedingNames = records.filter(
+      (r) => !r.employee_name && r.employee_id
+    );
+
+    if (recordsNeedingNames.length > 0) {
+      // 重複を除いたemployee_idのリストを作成
+      const uniqueEmployeeIds = [
+        ...new Set(recordsNeedingNames.map((r) => r.employee_id)),
+      ];
+
+      // 並列で社員情報を取得
+      const employeeResults = await Promise.all(
+        uniqueEmployeeIds.map((id) => getEmployee(id).catch(() => null))
+      );
+
+      // ID→名前のマップを作成
+      const employeeNameMap = new Map<string, string>();
+      uniqueEmployeeIds.forEach((id, index) => {
+        const employee = employeeResults[index];
         if (employee) {
-          record.employee_name = employee.employee_name;
+          employeeNameMap.set(id, employee.employee_name);
+        }
+      });
+
+      // レコードに名前を設定
+      for (const record of recordsNeedingNames) {
+        const name = employeeNameMap.get(record.employee_id);
+        if (name) {
+          record.employee_name = name;
         }
       }
     }
+
+    // 日時降順でソート（新しい順）
+    records.sort((a, b) => b.timestamp - a.timestamp);
 
     return records;
   } catch (error) {

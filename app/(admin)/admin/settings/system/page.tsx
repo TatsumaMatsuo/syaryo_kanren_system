@@ -14,7 +14,9 @@ interface SystemSettings {
   company_address: string;
   issuing_department: string;
   // ファイルストレージ設定
-  file_storage_type: "lark" | "box" | "local";
+  file_storage_type: "local" | "box";
+  // ローカルストレージ設定
+  local_storage_path: string;
   // Box設定
   box_client_id: string;
   box_client_secret: string;
@@ -34,7 +36,8 @@ export default function SystemSettingsPage() {
     company_postal_code: "",
     company_address: "",
     issuing_department: "",
-    file_storage_type: "lark",
+    file_storage_type: "local",
+    local_storage_path: "./uploads",
     box_client_id: "",
     box_client_secret: "",
     box_enterprise_id: "",
@@ -436,9 +439,8 @@ export default function SystemSettingsPage() {
             </label>
             <div className="flex flex-wrap gap-3">
               {[
-                { value: "lark", label: "Lark Drive", desc: "Larkのファイルストレージ" },
+                { value: "local", label: "ローカル", desc: "サーバーローカル保存（推奨）" },
                 { value: "box", label: "Box", desc: "Box.comクラウドストレージ" },
-                { value: "local", label: "ローカル", desc: "サーバーローカル保存" },
               ].map((option) => (
                 <label
                   key={option.value}
@@ -465,6 +467,41 @@ export default function SystemSettingsPage() {
               ))}
             </div>
           </div>
+
+          {/* ローカルストレージ設定（ローカルが選択された場合のみ表示） */}
+          {settings.file_storage_type === "local" && (
+            <div className="border-t pt-6 space-y-4">
+              <h3 className="font-medium text-gray-900 flex items-center space-x-2">
+                <span className="bg-green-600 text-white text-xs px-2 py-1 rounded">ローカル</span>
+                <span>ストレージ設定</span>
+              </h3>
+
+              {/* 保存先パス */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  保存先パス
+                </label>
+                <input
+                  type="text"
+                  value={settings.local_storage_path}
+                  onChange={(e) => handleTextChange("local_storage_path", e.target.value)}
+                  disabled={!isAdmin}
+                  placeholder="./uploads"
+                  className="w-full border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  相対パス（例: ./uploads）または絶対パス（例: C:\data\uploads）を指定できます
+                </p>
+              </div>
+
+              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800">
+                  ローカルストレージは追加設定不要で最も安定して動作します。
+                  ファイルはサーバーの指定フォルダに直接保存されます。
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Box設定（Boxが選択された場合のみ表示） */}
           {settings.file_storage_type === "box" && (

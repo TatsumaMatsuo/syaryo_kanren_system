@@ -1,29 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-utils";
 import { uploadFileToBox, initializeBoxClientWithConfig } from "@/lib/box-client";
-import { uploadFileToLark } from "@/lib/lark-client";
 import { getFileStorageSettings } from "@/services/system-settings.service";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
-// ローカルファイル保存ディレクトリ
-const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+/**
+ * ストレージパスを解決（相対パスの場合はcwdを基準に）
+ */
+function resolveStoragePath(storagePath: string): string {
+  if (path.isAbsolute(storagePath)) {
+    return storagePath;
+  }
+  return path.join(process.cwd(), storagePath);
+}
 
 /**
  * ローカルストレージにファイルを保存
  */
 async function uploadFileToLocal(
   buffer: Buffer,
-  filename: string
+  filename: string,
+  storagePath: string
 ): Promise<{ success: boolean; file_key?: string; error?: string }> {
   try {
+    const uploadDir = resolveStoragePath(storagePath);
+
     // アップロードディレクトリが存在しない場合は作成
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const filePath = path.join(UPLOAD_DIR, filename);
+    const filePath = path.join(uploadDir, filename);
     fs.writeFileSync(filePath, buffer);
 
     console.log(`[Upload API] Local file saved: ${filePath}`);
@@ -99,18 +108,25 @@ export async function POST(request: NextRequest) {
     if (storageType === "box") {
       // Box設定でクライアントを初期化
       // 環境変数のトークンを優先（開発時に便利）
-      const envToken = process.env.BOX_DEVELOPER_TOKEN;
-      const dbToken = storageSettings.box_developer_token;
-      const developerToken = (envToken && envToken !== "your_developer_token_here") ? envToken : dbToken;
+      const envToken = process.env.BOX_DEVELOPER_TOKEN?.trim();
+      const dbToken = storageSettings.box_developer_token?.trim();
+      // 空文字列やプレースホルダーは無効として扱う
+      const validEnvToken = envToken && envToken !== "your_developer_token_here" && envToken.length > 10 ? envToken : null;
+      const validDbToken = dbToken && dbToken.length > 10 ? dbToken : null;
+      const developerToken = validEnvToken || validDbToken;
 
-      console.log(`[Upload API] Token source: env=${envToken ? "set" : "empty"}, db=${dbToken ? "set" : "empty"}, using=${developerToken ? developerToken.substring(0, 8) + "..." : "none"}`);
+      console.log(`[Upload API] Token source: env=${validEnvToken ? "valid" : "empty"}, db=${validDbToken ? "valid" : "empty"}, using=${developerToken ? "devToken" : "JWT"}`);
 
+      // JWT認証またはDeveloper Token認証でクライアントを初期化
       if (storageSettings.box_client_id || developerToken) {
         initializeBoxClientWithConfig({
-          clientId: storageSettings.box_client_id,
-          clientSecret: storageSettings.box_client_secret,
-          enterpriseId: storageSettings.box_enterprise_id,
+          clientId: storageSettings.box_client_id || process.env.BOX_CLIENT_ID || "",
+          clientSecret: storageSettings.box_client_secret || process.env.BOX_CLIENT_SECRET || "",
+          enterpriseId: storageSettings.box_enterprise_id || process.env.BOX_ENTERPRISE_ID || "",
           folderId: storageSettings.box_folder_id || process.env.BOX_FOLDER_ID || "0",
+          publicKeyId: process.env.BOX_PUBLIC_KEY_ID || "",
+          privateKey: process.env.BOX_PRIVATE_KEY?.replace(/\\n/g, "\n") || "",
+          passphrase: process.env.BOX_PASSPHRASE || "",
           developerToken: developerToken || undefined,
         });
       }
@@ -129,32 +145,10 @@ export async function POST(request: NextRequest) {
       fileKey = `box_${result.file_id}`;
       console.log(`[Upload API] Box upload success - box_id: ${result.file_id}`);
 
-    } else if (storageType === "lark") {
-      // Larkにアップロード
-      try {
-        const result = await uploadFileToLark(buffer, file.name, file.type);
-
-        if (!result.success || !result.file_key) {
-          console.error("[Upload API] Lark upload failed");
-          return NextResponse.json(
-            { success: false, error: "Larkへのアップロードに失敗しました" },
-            { status: 500 }
-          );
-        }
-
-        fileKey = result.file_key;
-        console.log(`[Upload API] Lark upload success - file_key: ${fileKey}`);
-      } catch (larkError: any) {
-        console.error("[Upload API] Lark upload error:", larkError);
-        return NextResponse.json(
-          { success: false, error: larkError.message || "Larkへのアップロードに失敗しました" },
-          { status: 500 }
-        );
-      }
-
     } else {
       // ローカルストレージに保存
-      const result = await uploadFileToLocal(buffer, uniqueFilename);
+      const localPath = storageSettings.local_storage_path || "./uploads";
+      const result = await uploadFileToLocal(buffer, uniqueFilename, localPath);
 
       if (!result.success || !result.file_key) {
         console.error("[Upload API] Local save failed:", result.error);

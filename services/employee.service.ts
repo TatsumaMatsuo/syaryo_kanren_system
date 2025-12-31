@@ -164,75 +164,59 @@ export async function softDeleteEmployeeDocuments(
   insurancesDeleted: number;
 }> {
   try {
-    // 免許証の論理削除
-    const licensesResponse = await getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, {
-      filter: `AND(
-        CurrentValue.[employee_id] = "${employeeId}",
-        CurrentValue.[deleted_flag] = false
-      )`,
-    });
+    const deleteFilter = `AND(
+      CurrentValue.[employee_id] = "${employeeId}",
+      CurrentValue.[deleted_flag] = false
+    )`;
 
-    let licensesDeleted = 0;
-    if (licensesResponse.data?.items) {
-      for (const item of licensesResponse.data.items) {
-        await updateBaseRecord(LARK_TABLES.DRIVERS_LICENSES, item.record_id || "", {
-          deleted_flag: true,
-          deleted_at: Date.now(),
-          updated_at: Date.now(),
-        });
-        licensesDeleted++;
-      }
+    // 3つのテーブルから並列でデータ取得
+    const [licensesResponse, vehiclesResponse, insurancesResponse] =
+      await Promise.all([
+        getBaseRecords(LARK_TABLES.DRIVERS_LICENSES, { filter: deleteFilter }),
+        getBaseRecords(LARK_TABLES.VEHICLE_REGISTRATIONS, { filter: deleteFilter }),
+        getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, { filter: deleteFilter }),
+      ]);
+
+    const now = Date.now();
+    const deleteData = {
+      deleted_flag: true,
+      deleted_at: now,
+      updated_at: now,
+    };
+
+    // 全ての更新処理を並列で実行
+    const updatePromises: Promise<any>[] = [];
+
+    // 免許証の論理削除
+    const licenseItems = licensesResponse.data?.items || [];
+    for (const item of licenseItems) {
+      updatePromises.push(
+        updateBaseRecord(LARK_TABLES.DRIVERS_LICENSES, item.record_id || "", deleteData)
+      );
     }
 
     // 車検証の論理削除
-    const vehiclesResponse = await getBaseRecords(
-      LARK_TABLES.VEHICLE_REGISTRATIONS,
-      {
-        filter: `AND(
-        CurrentValue.[employee_id] = "${employeeId}",
-        CurrentValue.[deleted_flag] = false
-      )`,
-      }
-    );
-
-    let vehiclesDeleted = 0;
-    if (vehiclesResponse.data?.items) {
-      for (const item of vehiclesResponse.data.items) {
-        await updateBaseRecord(
-          LARK_TABLES.VEHICLE_REGISTRATIONS,
-          item.record_id || "",
-          {
-            deleted_flag: true,
-            deleted_at: Date.now(),
-            updated_at: Date.now(),
-          }
-        );
-        vehiclesDeleted++;
-      }
+    const vehicleItems = vehiclesResponse.data?.items || [];
+    for (const item of vehicleItems) {
+      updatePromises.push(
+        updateBaseRecord(LARK_TABLES.VEHICLE_REGISTRATIONS, item.record_id || "", deleteData)
+      );
     }
 
     // 任意保険の論理削除
-    const insurancesResponse = await getBaseRecords(
-      LARK_TABLES.INSURANCE_POLICIES,
-      {
-        filter: `AND(
-        CurrentValue.[employee_id] = "${employeeId}",
-        CurrentValue.[deleted_flag] = false
-      )`,
-      }
-    );
-
-    let insurancesDeleted = 0;
-    if (insurancesResponse.data?.items) {
-      for (const item of insurancesResponse.data.items) {
-        await updateBaseRecord(LARK_TABLES.INSURANCE_POLICIES, item.record_id || "", {
-          deleted_flag: true,
-          deleted_at: Date.now(),
-          updated_at: Date.now(),
-        });
-        insurancesDeleted++;
-      }
+    const insuranceItems = insurancesResponse.data?.items || [];
+    for (const item of insuranceItems) {
+      updatePromises.push(
+        updateBaseRecord(LARK_TABLES.INSURANCE_POLICIES, item.record_id || "", deleteData)
+      );
     }
+
+    // 全ての更新を並列実行
+    await Promise.all(updatePromises);
+
+    const licensesDeleted = licenseItems.length;
+    const vehiclesDeleted = vehicleItems.length;
+    const insurancesDeleted = insuranceItems.length;
 
     console.log(
       `Soft deleted documents for employee ${employeeId}: ${licensesDeleted} licenses, ${vehiclesDeleted} vehicles, ${insurancesDeleted} insurances`

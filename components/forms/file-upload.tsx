@@ -14,7 +14,9 @@ interface FileUploadProps {
 export function FileUpload({
   onFileChange,
   accept = {
-    "image/*": [".png", ".jpg", ".jpeg", ".pdf"],
+    "image/jpeg": [".jpg", ".jpeg"],
+    "image/png": [".png"],
+    "application/pdf": [".pdf"],
   },
   maxSize = 10485760, // 10MB
   currentFileUrl,

@@ -58,13 +58,37 @@ export async function getPermits(employeeId?: string): Promise<Permit[]> {
         updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
       })) || [];
 
-    // employee_nameが空の場合、社員マスタから取得
+    // employee_nameが空の場合、社員マスタから取得（並列処理で高速化）
     const { getEmployee } = await import("./employee.service");
-    for (const permit of permits) {
-      if (!permit.employee_name && permit.employee_id) {
-        const employee = await getEmployee(permit.employee_id);
+    const permitsNeedingNames = permits.filter(
+      (p) => !p.employee_name && p.employee_id
+    );
+
+    if (permitsNeedingNames.length > 0) {
+      // 重複を除いたemployee_idのリストを作成
+      const uniqueEmployeeIds = [
+        ...new Set(permitsNeedingNames.map((p) => p.employee_id)),
+      ];
+
+      // 並列で社員情報を取得
+      const employeeResults = await Promise.all(
+        uniqueEmployeeIds.map((id) => getEmployee(id).catch(() => null))
+      );
+
+      // ID→名前のマップを作成
+      const employeeNameMap = new Map<string, string>();
+      uniqueEmployeeIds.forEach((id, index) => {
+        const employee = employeeResults[index];
         if (employee) {
-          permit.employee_name = employee.employee_name;
+          employeeNameMap.set(id, employee.employee_name);
+        }
+      });
+
+      // 許可証に名前を設定
+      for (const permit of permitsNeedingNames) {
+        const name = employeeNameMap.get(permit.employee_id);
+        if (name) {
+          permit.employee_name = name;
         }
       }
     }
@@ -337,13 +361,37 @@ export async function getExpiredPermits(): Promise<Permit[]> {
         updated_at: new Date(item.fields[PERMIT_FIELDS.updated_at]),
       })) || [];
 
-    // employee_nameが空の場合、社員マスタから取得
+    // employee_nameが空の場合、社員マスタから取得（並列処理で高速化）
     const { getEmployee } = await import("./employee.service");
-    for (const permit of permits) {
-      if (!permit.employee_name && permit.employee_id) {
-        const employee = await getEmployee(permit.employee_id);
+    const permitsNeedingNames = permits.filter(
+      (p) => !p.employee_name && p.employee_id
+    );
+
+    if (permitsNeedingNames.length > 0) {
+      // 重複を除いたemployee_idのリストを作成
+      const uniqueEmployeeIds = [
+        ...new Set(permitsNeedingNames.map((p) => p.employee_id)),
+      ];
+
+      // 並列で社員情報を取得
+      const employeeResults = await Promise.all(
+        uniqueEmployeeIds.map((id) => getEmployee(id).catch(() => null))
+      );
+
+      // ID→名前のマップを作成
+      const employeeNameMap = new Map<string, string>();
+      uniqueEmployeeIds.forEach((id, index) => {
+        const employee = employeeResults[index];
         if (employee) {
-          permit.employee_name = employee.employee_name;
+          employeeNameMap.set(id, employee.employee_name);
+        }
+      });
+
+      // 許可証に名前を設定
+      for (const permit of permitsNeedingNames) {
+        const name = employeeNameMap.get(permit.employee_id);
+        if (name) {
+          permit.employee_name = name;
         }
       }
     }

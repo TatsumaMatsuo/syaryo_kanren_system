@@ -51,35 +51,43 @@ export function initializeBoxClientWithConfig(config: BoxConfig): boolean {
     _boxFolderId = config.folderId || "0";
     _configSource = "db";
 
-    // Developer Token認証（開発用・簡易設定）
-    if (config.developerToken) {
+    // Developer Token認証（開発用・簡易設定）- 有効なトークンがある場合のみ
+    if (config.developerToken && config.developerToken.trim().length > 10) {
       const auth = new BoxDeveloperTokenAuth({ token: config.developerToken });
       _boxClient = new BoxClient({ auth });
-      console.log("[box-client] Initialized with Developer Token from DB config");
+      console.log("[box-client] Initialized with Developer Token");
       return true;
     }
 
     // JWT認証（本番用）
     if (!config.clientId || !config.clientSecret || !config.enterpriseId) {
-      console.error("[box-client] Missing Box configuration from DB");
+      console.error("[box-client] Missing Box configuration - clientId, clientSecret, or enterpriseId not set");
       return false;
     }
+
+    if (!config.publicKeyId || !config.privateKey) {
+      console.error("[box-client] Missing JWT configuration - publicKeyId or privateKey not set");
+      return false;
+    }
+
+    console.log("[box-client] Initializing with JWT Auth...");
+    console.log(`[box-client] Config: clientId=${config.clientId?.substring(0, 8)}..., enterpriseId=${config.enterpriseId}, keyId=${config.publicKeyId}`);
 
     // JWT設定を構築
     const jwtConfig = new JwtConfig({
       clientId: config.clientId,
       clientSecret: config.clientSecret,
       enterpriseId: config.enterpriseId,
-      jwtKeyId: config.publicKeyId || "",
-      privateKey: config.privateKey || "",
+      jwtKeyId: config.publicKeyId,
+      privateKey: config.privateKey,
       privateKeyPassphrase: config.passphrase || "",
     });
     const auth = new BoxJwtAuth({ config: jwtConfig });
     _boxClient = new BoxClient({ auth });
-    console.log("[box-client] Initialized with JWT Auth from DB config");
+    console.log("[box-client] Initialized with JWT Auth successfully");
     return true;
   } catch (error) {
-    console.error("[box-client] Failed to initialize with DB config:", error);
+    console.error("[box-client] Failed to initialize:", error);
     return false;
   }
 }

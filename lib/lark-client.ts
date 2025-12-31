@@ -1,4 +1,5 @@
 import * as lark from "@larksuiteoapi/node-sdk";
+import { Readable } from "stream";
 
 // Larkクライアント（遅延初期化）
 let _larkClient: lark.Client | null = null;
@@ -230,17 +231,38 @@ export async function uploadFileToLark(
   fileType: string
 ) {
   try {
+    // BufferをReadable Streamに変換（Lark SDKがStreamを期待するため）
+    const stream = Readable.from(fileBuffer);
+
+    // MIMEタイプからLarkのfile_typeに変換
+    let larkFileType: "opus" | "mp4" | "pdf" | "doc" | "xls" | "ppt" | "stream" = "stream";
+    if (fileType.includes("pdf")) {
+      larkFileType = "pdf";
+    } else if (fileType.includes("mp4") || fileType.includes("video")) {
+      larkFileType = "mp4";
+    } else if (fileType.includes("doc") || fileType.includes("word")) {
+      larkFileType = "doc";
+    } else if (fileType.includes("xls") || fileType.includes("excel") || fileType.includes("spreadsheet")) {
+      larkFileType = "xls";
+    } else if (fileType.includes("ppt") || fileType.includes("presentation")) {
+      larkFileType = "ppt";
+    }
+
+    console.log(`[lark-client] Uploading file: ${filename}, type: ${larkFileType}`);
+
     const response = await larkClient.im.file.create({
       data: {
-        file_type: fileType as "opus" | "mp4" | "pdf" | "doc" | "xls" | "ppt" | "stream",
+        file_type: larkFileType,
         file_name: filename,
-        file: fileBuffer,
+        file: stream,
       },
     });
 
     if (!response || !response.file_key) {
       throw new Error("Lark file upload failed");
     }
+
+    console.log(`[lark-client] Upload successful - file_key: ${response.file_key}`);
 
     return {
       success: true,

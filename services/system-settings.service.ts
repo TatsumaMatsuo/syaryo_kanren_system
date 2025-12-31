@@ -17,7 +17,9 @@ export interface SystemSettings {
   company_address: string;
   issuing_department: string;
   // ファイルストレージ設定
-  file_storage_type: "lark" | "box" | "local";
+  file_storage_type: "local" | "box";
+  // ローカルストレージ設定
+  local_storage_path: string;
   // Box設定
   box_client_id: string;
   box_client_secret: string;
@@ -36,7 +38,9 @@ const DEFAULT_SETTINGS: SystemSettings = {
   company_address: "",
   issuing_department: "",
   // ファイルストレージ設定
-  file_storage_type: "lark",
+  file_storage_type: "local",
+  // ローカルストレージ設定
+  local_storage_path: "./uploads",
   // Box設定
   box_client_id: "",
   box_client_secret: "",
@@ -111,7 +115,8 @@ export async function getCompanyInfo(): Promise<{
  * ファイルストレージ設定を取得
  */
 export async function getFileStorageSettings(): Promise<{
-  storage_type: "lark" | "box" | "local";
+  storage_type: "local" | "box";
+  local_storage_path: string;
   box_client_id: string;
   box_client_secret: string;
   box_enterprise_id: string;
@@ -121,6 +126,7 @@ export async function getFileStorageSettings(): Promise<{
   const settings = await getSystemSettings();
   return {
     storage_type: settings.file_storage_type,
+    local_storage_path: settings.local_storage_path,
     box_client_id: settings.box_client_id,
     box_client_secret: settings.box_client_secret,
     box_enterprise_id: settings.box_enterprise_id,
@@ -152,7 +158,9 @@ export async function updateSystemSettings(
       });
     }
 
-    // 各設定を更新または作成
+    // 各設定の更新/作成処理を並列で実行
+    const updatePromises: Promise<any>[] = [];
+
     for (const [key, value] of Object.entries(settings)) {
       if (value === undefined) continue;
 
@@ -160,21 +168,28 @@ export async function updateSystemSettings(
 
       if (recordId) {
         // 更新
-        await updateBaseRecord(LARK_TABLES.SYSTEM_SETTINGS, recordId, {
-          [SYSTEM_SETTINGS_FIELDS.setting_value]: String(value),
-          [SYSTEM_SETTINGS_FIELDS.updated_at]: now,
-          [SYSTEM_SETTINGS_FIELDS.updated_by]: updatedBy,
-        });
+        updatePromises.push(
+          updateBaseRecord(LARK_TABLES.SYSTEM_SETTINGS, recordId, {
+            [SYSTEM_SETTINGS_FIELDS.setting_value]: String(value),
+            [SYSTEM_SETTINGS_FIELDS.updated_at]: now,
+            [SYSTEM_SETTINGS_FIELDS.updated_by]: updatedBy,
+          })
+        );
       } else {
         // 新規作成
-        await createBaseRecord(LARK_TABLES.SYSTEM_SETTINGS, {
-          [SYSTEM_SETTINGS_FIELDS.setting_key]: key,
-          [SYSTEM_SETTINGS_FIELDS.setting_value]: String(value),
-          [SYSTEM_SETTINGS_FIELDS.updated_at]: now,
-          [SYSTEM_SETTINGS_FIELDS.updated_by]: updatedBy,
-        });
+        updatePromises.push(
+          createBaseRecord(LARK_TABLES.SYSTEM_SETTINGS, {
+            [SYSTEM_SETTINGS_FIELDS.setting_key]: key,
+            [SYSTEM_SETTINGS_FIELDS.setting_value]: String(value),
+            [SYSTEM_SETTINGS_FIELDS.updated_at]: now,
+            [SYSTEM_SETTINGS_FIELDS.updated_by]: updatedBy,
+          })
+        );
       }
     }
+
+    // 全ての更新を並列実行
+    await Promise.all(updatePromises);
   } catch (error) {
     console.error("Failed to update system settings:", error);
     throw error;
