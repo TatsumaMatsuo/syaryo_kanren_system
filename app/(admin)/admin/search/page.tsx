@@ -4,7 +4,20 @@ import { useState } from "react";
 import { Search, FileText, Car, Shield, User, Calendar, CheckCircle, XCircle, Clock, Image as ImageIcon } from "lucide-react";
 import { LarkUser, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
 import { FileViewer } from "@/components/ui/file-viewer";
-import { useFileType, getFileApiUrl } from "@/hooks/useFileType";
+
+// image_attachmentからファイルURLを取得するヘルパー関数
+function getFileUrl(attachment: any): string | null {
+  if (!attachment) return null;
+  const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  if (att?.file_token) {
+    const baseUrl = `/api/attachments/${att.file_token}`;
+    if (att.url) {
+      return `${baseUrl}?url=${encodeURIComponent(att.url)}`;
+    }
+    return baseUrl;
+  }
+  return null;
+}
 
 interface UserDocuments {
   license: DriversLicense | null;
@@ -76,7 +89,7 @@ export default function SearchPage() {
 
   // 画像URLの取得（ファイルキーからAPI URLを生成）
   const getImageUrl = (fileKey: string | undefined) => {
-    return getFileApiUrl(fileKey);
+    return fileKey || null;
   };
 
   // ステータスバッジ
@@ -253,11 +266,11 @@ export default function SearchPage() {
                     {documents.license.image_attachment && (
                       <div className="relative h-40 border rounded-lg overflow-hidden">
                         <FileViewer
-                          fileKey={getFileApiUrl(documents.license.image_attachment)}
+                          fileKey={getFileUrl(documents.license.image_attachment)}
                           title="免許証"
                           compact={true}
                           heightClass="h-full"
-                          onClick={() => setSelectedImage(getFileApiUrl(documents.license!.image_attachment))}
+                          onClick={() => setSelectedImage(getFileUrl(documents.license!.image_attachment))}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all pointer-events-none">
                           <ImageIcon className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
@@ -318,11 +331,11 @@ export default function SearchPage() {
                     {documents.vehicle.image_attachment && (
                       <div className="relative h-40 border rounded-lg overflow-hidden">
                         <FileViewer
-                          fileKey={getFileApiUrl(documents.vehicle.image_attachment)}
+                          fileKey={getFileUrl(documents.vehicle.image_attachment)}
                           title="車検証"
                           compact={true}
                           heightClass="h-full"
-                          onClick={() => setSelectedImage(getFileApiUrl(documents.vehicle!.image_attachment))}
+                          onClick={() => setSelectedImage(getFileUrl(documents.vehicle!.image_attachment))}
                         />
                       </div>
                     )}
@@ -383,11 +396,11 @@ export default function SearchPage() {
                       {documents.insurance.image_attachment && (
                         <div className="relative h-40 border rounded-lg overflow-hidden">
                           <FileViewer
-                            fileKey={getFileApiUrl(documents.insurance.image_attachment)}
+                            fileKey={getFileUrl(documents.insurance.image_attachment)}
                             title="任意保険証"
                             compact={true}
                             heightClass="h-full"
-                            onClick={() => setSelectedImage(getFileApiUrl(documents.insurance!.image_attachment))}
+                            onClick={() => setSelectedImage(getFileUrl(documents.insurance!.image_attachment))}
                           />
                         </div>
                       )}
