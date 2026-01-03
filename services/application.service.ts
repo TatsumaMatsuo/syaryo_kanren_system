@@ -38,8 +38,8 @@ export async function getApplicationOverview(
     // 免許証: 1:1なのでMapでOK（最初の1件を使用）
     const licensesMap = new Map<string, DriversLicense>();
     console.log(`DEBUG: licensesResponse items count: ${licensesResponse.data?.items?.length || 0}`);
-    if (licensesResponse.data?.items?.length > 0) {
-      console.log(`DEBUG: First license item fields:`, JSON.stringify(licensesResponse.data.items[0].fields, null, 2));
+    if ((licensesResponse.data?.items?.length ?? 0) > 0) {
+      console.log(`DEBUG: First license item fields:`, JSON.stringify(licensesResponse.data!.items![0].fields, null, 2));
     }
     licensesResponse.data?.items
       ?.filter((item: any) => item.fields.deleted_flag !== true)
