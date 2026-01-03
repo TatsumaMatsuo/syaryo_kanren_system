@@ -15,6 +15,8 @@ import { requireAdmin, getCurrentUser } from "@/lib/auth-utils";
 import { getBaseRecords } from "@/lib/lark-client";
 import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
 import { recordApprovalHistory } from "@/services/approval-history.service";
+import { sendRejectionNotification } from "@/services/lark-notification.service";
+import { getLarkOpenIdByEmployeeId } from "@/services/lark-user.service";
 
 /**
  * POST /api/approvals/:id/reject
@@ -107,6 +109,33 @@ export async function POST(
         reason,
         timestamp: Date.now(),
       });
+
+      // Lark Bot通知を送信
+      try {
+        const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
+        if (openId) {
+          let documentNumber = "";
+          if (type === "license" && applicationRecord.license_number) {
+            documentNumber = applicationRecord.license_number;
+          } else if (type === "vehicle" && applicationRecord.vehicle_number) {
+            documentNumber = applicationRecord.vehicle_number;
+          } else if (type === "insurance" && applicationRecord.policy_number) {
+            documentNumber = applicationRecord.policy_number;
+          }
+
+          await sendRejectionNotification(
+            openId,
+            type as "license" | "vehicle" | "insurance",
+            documentNumber,
+            reason
+          );
+          console.log(`却下通知を送信しました: ${applicationRecord.employee_id}`);
+        } else {
+          console.log(`Lark Open IDが見つからないため通知をスキップ: ${applicationRecord.employee_id}`);
+        }
+      } catch (notifyError) {
+        console.error("却下通知の送信に失敗:", notifyError);
+      }
     }
 
     return NextResponse.json({

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminRole } from "@/lib/auth-utils";
+import { requireAdmin } from "@/lib/auth-utils";
 import { restoreInsurancePolicy } from "@/services/insurance-policy.service";
 
 interface RouteParams {
@@ -13,7 +13,7 @@ interface RouteParams {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     // 管理者権限チェック
-    const authCheck = await requireAdminRole();
+    const authCheck = await requireAdmin();
     if (!authCheck.authorized) {
       return authCheck.response;
     }

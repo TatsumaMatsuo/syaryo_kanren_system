@@ -23,6 +23,8 @@ import {
 } from "@/services/permit.service";
 import { generatePermitPdf } from "@/services/pdf-generator.service";
 import { calculatePermitExpiration } from "@/lib/permit-utils";
+import { sendApprovalNotification } from "@/services/lark-notification.service";
+import { getLarkOpenIdByEmployeeId } from "@/services/lark-user.service";
 
 // 最大一括承認件数
 const MAX_BULK_ITEMS = 50;
@@ -207,8 +209,44 @@ async function approveSingleItem(
       });
 
       // 許可証の自動発行チェック
+      let allApproved = false;
       if (applicationRecord.employee_id) {
+        // 許可証発行前に全書類が承認済みかチェック
+        const licenses = await getDriversLicenses(applicationRecord.employee_id);
+        const vehicles = await getVehicleRegistrations(applicationRecord.employee_id);
+        const insurances = await getInsurancePolicies(applicationRecord.employee_id);
+
+        const hasApprovedLicense = licenses.some(l => l.approval_status === "approved");
+        const hasApprovedVehicle = vehicles.some(v => v.approval_status === "approved");
+        const hasApprovedInsurance = insurances.some(i => i.approval_status === "approved");
+
+        allApproved = hasApprovedLicense && hasApprovedVehicle && hasApprovedInsurance;
+
         await checkAndGeneratePermit(applicationRecord.employee_id, baseUrl);
+      }
+
+      // Lark Bot通知を送信
+      try {
+        const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
+        if (openId) {
+          let documentNumber = "";
+          if (item.type === "license" && applicationRecord.license_number) {
+            documentNumber = applicationRecord.license_number;
+          } else if (item.type === "vehicle" && applicationRecord.vehicle_number) {
+            documentNumber = applicationRecord.vehicle_number;
+          } else if (item.type === "insurance" && applicationRecord.policy_number) {
+            documentNumber = applicationRecord.policy_number;
+          }
+
+          await sendApprovalNotification(
+            openId,
+            item.type,
+            documentNumber,
+            allApproved
+          );
+        }
+      } catch (notifyError) {
+        console.error("承認通知の送信に失敗:", notifyError);
       }
     }
 

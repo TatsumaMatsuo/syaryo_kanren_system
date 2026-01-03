@@ -226,3 +226,106 @@ export async function sendAdminNotification(
     buttonText: "🔧 管理画面を開く",
   });
 }
+
+/**
+ * 承認通知のテンプレートを生成
+ */
+export function createApprovalNotificationTemplate(
+  documentType: "license" | "vehicle" | "insurance",
+  documentNumber: string,
+  allApproved: boolean = false
+): NotificationTemplate {
+  const documentTypeMap = {
+    license: "免許証",
+    vehicle: "車検証",
+    insurance: "任意保険証",
+  };
+
+  const docTypeName = documentTypeMap[documentType];
+
+  if (allApproved) {
+    return {
+      title: "🎉 マイカー通勤申請が承認されました",
+      content: `おめでとうございます！すべての書類が承認され、マイカー通勤の許可証が発行されました。
+
+**承認された書類**: ${docTypeName}（${documentNumber}）
+
+✅ **全書類が承認済みとなりました**
+許可証はダッシュボードからダウンロードできます。
+
+📌 **下記ボタンからダッシュボードにアクセスし、許可証を確認してください。**`,
+    };
+  }
+
+  return {
+    title: `✅ ${docTypeName}が承認されました`,
+    content: `申請いただいた${docTypeName}が承認されました。
+
+**書類種類**: ${docTypeName}
+**証明書番号**: ${documentNumber}
+
+📌 **すべての書類（免許証・車検証・任意保険証）が承認されると、マイカー通勤許可証が発行されます。**`,
+  };
+}
+
+/**
+ * 却下通知のテンプレートを生成
+ */
+export function createRejectionNotificationTemplate(
+  documentType: "license" | "vehicle" | "insurance",
+  documentNumber: string,
+  reason: string
+): NotificationTemplate {
+  const documentTypeMap = {
+    license: "免許証",
+    vehicle: "車検証",
+    insurance: "任意保険証",
+  };
+
+  const docTypeName = documentTypeMap[documentType];
+
+  return {
+    title: `❌ ${docTypeName}の申請が却下されました`,
+    content: `申請いただいた${docTypeName}が却下されました。
+
+**書類種類**: ${docTypeName}
+**証明書番号**: ${documentNumber}
+
+**却下理由**:
+${reason}
+
+📌 **内容を確認の上、再度申請をお願いします。**`,
+  };
+}
+
+/**
+ * 申請者に承認通知を送信
+ */
+export async function sendApprovalNotification(
+  userId: string,
+  documentType: "license" | "vehicle" | "insurance",
+  documentNumber: string,
+  allApproved: boolean = false
+): Promise<boolean> {
+  const template = createApprovalNotificationTemplate(documentType, documentNumber, allApproved);
+  return sendLarkMessage(userId, template, {
+    actionUrl: `${SYSTEM_BASE_URL}/dashboard`,
+    buttonText: allApproved ? "📋 許可証を確認する" : "📋 申請状況を確認する",
+  });
+}
+
+/**
+ * 申請者に却下通知を送信
+ */
+export async function sendRejectionNotification(
+  userId: string,
+  documentType: "license" | "vehicle" | "insurance",
+  documentNumber: string,
+  reason: string
+): Promise<boolean> {
+  const template = createRejectionNotificationTemplate(documentType, documentNumber, reason);
+  return sendLarkMessage(userId, template, {
+    actionUrl: `${SYSTEM_BASE_URL}/dashboard`,
+    buttonText: "📋 再申請する",
+  });
+}

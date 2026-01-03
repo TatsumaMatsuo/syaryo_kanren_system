@@ -23,6 +23,8 @@ import {
 } from "@/services/permit.service";
 import { generatePermitPdf } from "@/services/pdf-generator.service";
 import { calculatePermitExpiration } from "@/lib/permit-utils";
+import { sendApprovalNotification } from "@/services/lark-notification.service";
+import { getLarkOpenIdByEmployeeId } from "@/services/lark-user.service";
 
 /**
  * 全書類が承認済みかチェックし、許可証を発行
@@ -207,9 +209,51 @@ export async function POST(
       });
 
       // 許可証の自動発行チェック（全書類が承認済みの場合）
+      let allApproved = false;
       if (applicationRecord.employee_id) {
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
+
+        // 許可証発行前に全書類が承認済みかチェック
+        const licenses = await getDriversLicenses(applicationRecord.employee_id);
+        const vehicles = await getVehicleRegistrations(applicationRecord.employee_id);
+        const insurances = await getInsurancePolicies(applicationRecord.employee_id);
+
+        const hasApprovedLicense = licenses.some(l => l.approval_status === "approved");
+        const hasApprovedVehicle = vehicles.some(v => v.approval_status === "approved");
+        const hasApprovedInsurance = insurances.some(i => i.approval_status === "approved");
+
+        allApproved = hasApprovedLicense && hasApprovedVehicle && hasApprovedInsurance;
+
         await checkAndGeneratePermit(applicationRecord.employee_id, baseUrl);
+      }
+
+      // Lark Bot通知を送信
+      try {
+        const openId = await getLarkOpenIdByEmployeeId(applicationRecord.employee_id);
+        if (openId) {
+          // 書類番号を取得
+          let documentNumber = "";
+          if (type === "license" && applicationRecord.license_number) {
+            documentNumber = applicationRecord.license_number;
+          } else if (type === "vehicle" && applicationRecord.vehicle_number) {
+            documentNumber = applicationRecord.vehicle_number;
+          } else if (type === "insurance" && applicationRecord.policy_number) {
+            documentNumber = applicationRecord.policy_number;
+          }
+
+          await sendApprovalNotification(
+            openId,
+            type as "license" | "vehicle" | "insurance",
+            documentNumber,
+            allApproved
+          );
+          console.log(`承認通知を送信しました: ${applicationRecord.employee_id}`);
+        } else {
+          console.log(`Lark Open IDが見つからないため通知をスキップ: ${applicationRecord.employee_id}`);
+        }
+      } catch (notifyError) {
+        // 通知エラーは承認処理に影響させない
+        console.error("承認通知の送信に失敗:", notifyError);
       }
     }
 

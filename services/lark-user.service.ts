@@ -181,3 +181,43 @@ export async function getCurrentLarkUser(
     return null;
   }
 }
+
+/**
+ * 社員IDからLark Open IDを取得
+ * @param employeeId 社員ID
+ * @returns Lark Open ID（取得できない場合はnull）
+ */
+export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<string | null> {
+  try {
+    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+      filter: `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${employeeId}"`,
+    });
+
+    const employee = response.data?.items?.[0];
+    if (!employee) {
+      console.log(`Employee not found for ID: ${employeeId}`);
+      return null;
+    }
+
+    // Peopleフィールドからopen_idを取得
+    const nameField = employee.fields[EMPLOYEE_FIELDS.employee_name] as unknown;
+
+    if (Array.isArray(nameField) && nameField.length > 0) {
+      const firstItem = nameField[0] as Record<string, unknown>;
+      if (firstItem && typeof firstItem === "object" && "id" in firstItem && typeof firstItem.id === "string") {
+        return firstItem.id;
+      }
+    } else if (nameField && typeof nameField === "object" && !Array.isArray(nameField)) {
+      const obj = nameField as Record<string, unknown>;
+      if ("id" in obj && typeof obj.id === "string") {
+        return obj.id;
+      }
+    }
+
+    console.log(`Open ID not found in employee record for ID: ${employeeId}`);
+    return null;
+  } catch (error) {
+    console.error("Failed to get Lark open_id by employee_id:", error);
+    return null;
+  }
+}
