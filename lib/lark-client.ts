@@ -267,14 +267,14 @@ export async function uploadAttachmentToBase(
     });
 
     console.log(`[lark-client] uploadAttachmentToBase response:`, {
-      code: response.code,
-      msg: response.msg,
-      file_token: response.file_token,
+      code: response?.code,
+      msg: response?.msg,
+      file_token: response?.file_token,
     });
 
     // Drive APIはcodeを返さない場合があるため、file_tokenの存在のみチェック
-    if (!response.file_token) {
-      throw new Error(`Lark Drive upload failed: ${response.msg || "Unknown error"}`);
+    if (!response?.file_token) {
+      throw new Error(`Lark Drive upload failed: ${response?.msg || "Unknown error"}`);
     }
 
     return {
