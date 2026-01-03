@@ -250,14 +250,14 @@ export default function SearchPage() {
                         </div>
                       </div>
                     </div>
-                    {documents.license.image_url && (
+                    {documents.license.image_attachment && (
                       <div className="relative h-40 border rounded-lg overflow-hidden">
                         <FileViewer
-                          fileKey={documents.license.image_url}
+                          fileKey={getFileApiUrl(documents.license.image_attachment)}
                           title="免許証"
                           compact={true}
                           heightClass="h-full"
-                          onClick={() => setSelectedImage(documents.license!.image_url)}
+                          onClick={() => setSelectedImage(getFileApiUrl(documents.license!.image_attachment))}
                         />
                         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all pointer-events-none">
                           <ImageIcon className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
@@ -315,14 +315,14 @@ export default function SearchPage() {
                         </div>
                       </div>
                     </div>
-                    {documents.vehicle.image_url && (
+                    {documents.vehicle.image_attachment && (
                       <div className="relative h-40 border rounded-lg overflow-hidden">
                         <FileViewer
-                          fileKey={documents.vehicle.image_url}
+                          fileKey={getFileApiUrl(documents.vehicle.image_attachment)}
                           title="車検証"
                           compact={true}
                           heightClass="h-full"
-                          onClick={() => setSelectedImage(documents.vehicle!.image_url)}
+                          onClick={() => setSelectedImage(getFileApiUrl(documents.vehicle!.image_attachment))}
                         />
                       </div>
                     )}
@@ -380,14 +380,14 @@ export default function SearchPage() {
                           </div>
                         </div>
                       </div>
-                      {documents.insurance.image_url && (
+                      {documents.insurance.image_attachment && (
                         <div className="relative h-40 border rounded-lg overflow-hidden">
                           <FileViewer
-                            fileKey={documents.insurance.image_url}
+                            fileKey={getFileApiUrl(documents.insurance.image_attachment)}
                             title="任意保険証"
                             compact={true}
                             heightClass="h-full"
-                            onClick={() => setSelectedImage(documents.insurance!.image_url)}
+                            onClick={() => setSelectedImage(getFileApiUrl(documents.insurance!.image_attachment))}
                           />
                         </div>
                       )}
