@@ -19,6 +19,7 @@ import { getEmployee } from "@/services/employee.service";
 import {
   createPermit,
   revokeExistingPermit,
+  getValidPermitByVehicleId,
 } from "@/services/permit.service";
 import { generatePermitPdf } from "@/services/pdf-generator.service";
 import { calculatePermitExpiration } from "@/lib/permit-utils";
@@ -69,20 +70,40 @@ async function checkAndGeneratePermit(
 
     for (const vehicle of approvedVehicles) {
       try {
-        await revokeExistingPermit(vehicle.id);
-
+        // 有効期限を計算（免許証・車検証・保険証の最短期限）
         const expirationDate = calculatePermitExpiration(
           approvedLicense.expiration_date,
           vehicle.inspection_expiration_date,
           approvedInsurance.coverage_end_date
         );
 
+        // 既存の有効な許可証をチェック
+        const existingPermit = await getValidPermitByVehicleId(vehicle.id);
+        if (existingPermit) {
+          // 有効期限が同じ場合はスキップ（再発行不要）
+          const existingExpTime = existingPermit.expiration_date.getTime();
+          const newExpTime = expirationDate.getTime();
+          if (Math.abs(existingExpTime - newExpTime) < 86400000) { // 1日以内の差は同じとみなす
+            console.log(`許可証は既に発行済みです（有効期限同一）: ${vehicle.vehicle_number}`);
+            continue;
+          }
+          // 有効期限が変わった場合は既存を無効化して再発行
+          console.log(`許可証を再発行します（有効期限変更）: ${vehicle.vehicle_number}`);
+          await revokeExistingPermit(vehicle.id);
+        }
+
+        // 車両情報（車名・メーカー）を組み立て（null対応）
+        const vehicleModelParts = [vehicle.manufacturer, vehicle.model_name].filter(Boolean);
+        const vehicleModel = vehicleModelParts.length > 0 ? vehicleModelParts.join(" ") : "（未登録）";
+
         const permitData = {
           employee_id: employeeId,
           employee_name: employee.employee_name,
           vehicle_id: vehicle.id,
           vehicle_number: vehicle.vehicle_number,
-          vehicle_model: `${vehicle.manufacturer} ${vehicle.model_name}`,
+          vehicle_model: vehicleModel,
+          manufacturer: vehicle.manufacturer || "",
+          model_name: vehicle.model_name || "",
           expiration_date: expirationDate,
         };
 
@@ -91,7 +112,7 @@ async function checkAndGeneratePermit(
         const fileKey = await generatePermitPdf({
           employeeName: employee.employee_name,
           vehicleNumber: vehicle.vehicle_number,
-          vehicleModel: `${vehicle.manufacturer} ${vehicle.model_name}`,
+          vehicleModel: vehicleModel,
           issueDate: new Date(),
           expirationDate,
           permitId: permit.id,
