@@ -219,137 +219,202 @@ export async function getBaseTables() {
 }
 
 /**
- * Larkにファイルをアップロード（IM File API使用）
+ * Lark添付ファイル型
+ */
+export interface LarkAttachment {
+  file_token: string;
+  name: string;
+  size: number;
+  type: string;
+  tmp_url?: string; // Lark Baseから取得時の一時ダウンロードURL（バッチAPI）
+  url?: string; // Lark Baseから取得時の直接ダウンロードURL
+}
+
+/**
+ * Lark Base 添付ファイルとしてファイルをアップロード（Drive API使用）
+ * Bitable の添付ファイルフィールドに保存するためのアップロード
  * @param fileBuffer ファイルのBuffer
  * @param filename ファイル名
- * @param fileType ファイルタイプ（拡張子）
- * @returns file_key - アップロードされたファイルのキー
+ * @param mimeType MIMEタイプ
+ * @returns アタッチメントオブジェクト（file_token, name, size, type）
  */
-export async function uploadFileToLark(
+export async function uploadAttachmentToBase(
   fileBuffer: Buffer,
   filename: string,
-  fileType: string
-) {
+  mimeType: string
+): Promise<LarkAttachment> {
   try {
-    // BufferをReadable Streamに変換（Lark SDKがStreamを期待するため）
-    const stream = Readable.from(fileBuffer);
+    console.log(`[lark-client] uploadAttachmentToBase - filename: ${filename}, mimeType: ${mimeType}, size: ${fileBuffer.length}`);
 
-    // MIMEタイプからLarkのfile_typeに変換
-    let larkFileType: "opus" | "mp4" | "pdf" | "doc" | "xls" | "ppt" | "stream" = "stream";
-    if (fileType.includes("pdf")) {
-      larkFileType = "pdf";
-    } else if (fileType.includes("mp4") || fileType.includes("video")) {
-      larkFileType = "mp4";
-    } else if (fileType.includes("doc") || fileType.includes("word")) {
-      larkFileType = "doc";
-    } else if (fileType.includes("xls") || fileType.includes("excel") || fileType.includes("spreadsheet")) {
-      larkFileType = "xls";
-    } else if (fileType.includes("ppt") || fileType.includes("presentation")) {
-      larkFileType = "ppt";
+    const client = getLarkClient();
+    if (!client) {
+      throw new Error("Lark client not initialized");
     }
 
-    console.log(`[lark-client] Uploading file: ${filename}, type: ${larkFileType}`);
+    // BufferをReadable Streamに変換
+    const stream = Readable.from(fileBuffer);
 
-    const response = await larkClient.im.file.create({
+    // Drive API を使用してファイルをアップロード
+    // upload_all は小さいファイル（<20MB）向け
+    const response = await client.drive.media.uploadAll({
       data: {
-        file_type: larkFileType,
         file_name: filename,
-        file: stream as any, // ReadableをLark SDKの型に適合させる
+        parent_type: "bitable_file", // Bitable添付ファイル用
+        parent_node: getLarkBaseToken(), // Base App Token
+        size: fileBuffer.length,
+        file: stream as any,
       },
     });
 
-    if (!response || !response.file_key) {
-      throw new Error("Lark file upload failed");
+    console.log(`[lark-client] uploadAttachmentToBase response:`, {
+      code: response.code,
+      msg: response.msg,
+      file_token: response.file_token,
+    });
+
+    // Drive APIはcodeを返さない場合があるため、file_tokenの存在のみチェック
+    if (!response.file_token) {
+      throw new Error(`Lark Drive upload failed: ${response.msg || "Unknown error"}`);
     }
 
-    console.log(`[lark-client] Upload successful - file_key: ${response.file_key}`);
-
     return {
-      success: true,
-      file_key: response.file_key,
+      file_token: response.file_token,
+      name: filename,
+      size: fileBuffer.length,
+      type: mimeType,
     };
   } catch (error) {
-    console.error("Error uploading file to Lark:", error);
+    console.error("[lark-client] Error uploading attachment to Lark Base:", error);
     throw error;
   }
 }
 
 /**
- * Larkからファイルをダウンロード
- * @param fileKey ファイルキー
+ * Lark Base 添付ファイルをダウンロード
+ * @param fileToken 添付ファイルのfile_token
+ * @param downloadUrl 添付ファイルのダウンロードURL（オプション、Larkレコードから取得）
  * @returns ファイルデータ（Buffer）
  */
-export async function downloadFileFromLark(fileKey: string): Promise<Buffer | null> {
+export async function downloadAttachmentFromBase(fileToken: string, downloadUrl?: string): Promise<Buffer | null> {
   try {
-    console.log(`[lark-client] downloadFileFromLark - fileKey: ${fileKey}`);
+    console.log(`[lark-client] downloadAttachmentFromBase - fileToken: ${fileToken}`);
 
-    const response = await larkClient.im.file.get({
-      path: {
-        file_key: fileKey,
-      },
-    });
-
-    if (!response) {
-      console.error("[lark-client] File download returned null");
-      return null;
+    const client = getLarkClient();
+    if (!client) {
+      throw new Error("Lark client not initialized");
     }
 
-    // Lark SDKのレスポンス形式に応じてBufferに変換
-    // @ts-ignore - Lark SDKの型定義が不完全な場合がある
-    if (response.writeFile) {
-      // writeFileメソッドがある場合はストリームを読み取る
-      const chunks: Buffer[] = [];
-      // @ts-ignore
-      for await (const chunk of response) {
-        chunks.push(Buffer.from(chunk));
+    // アクセストークンを取得
+    let accessToken: string | undefined;
+    try {
+      // @ts-ignore - 内部APIにアクセス
+      const tokenManager = client.tokenManager;
+      console.log(`[lark-client] tokenManager exists: ${!!tokenManager}`);
+      if (tokenManager) {
+        // @ts-ignore
+        const tenantAccessToken = await tokenManager.getTenantAccessToken();
+        console.log(`[lark-client] tenantAccessToken type:`, typeof tenantAccessToken);
+        // トークンは文字列またはオブジェクトとして返される可能性がある
+        if (typeof tenantAccessToken === 'string') {
+          accessToken = tenantAccessToken;
+        } else {
+          accessToken = tenantAccessToken?.tenant_access_token || tenantAccessToken?.token;
+        }
       }
-      return Buffer.concat(chunks);
+    } catch (tokenError) {
+      console.error("[lark-client] Error getting access token:", tokenError);
     }
 
-    // Bufferとして直接返される場合
-    if (Buffer.isBuffer(response)) {
-      return response;
-    }
+    console.log(`[lark-client] accessToken available: ${!!accessToken}`);
 
-    // ArrayBufferの場合
-    if (response instanceof ArrayBuffer) {
-      return Buffer.from(response);
-    }
-
-    // ReadableStreamの場合
-    // @ts-ignore
-    if (response.getReader) {
-      // @ts-ignore
-      const reader = response.getReader();
-      const chunks: Uint8Array[] = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) chunks.push(value);
+    // 方法1: downloadUrl が提供されている場合はそれを使用
+    if (downloadUrl && accessToken) {
+      try {
+        console.log(`[lark-client] Downloading from provided URL with auth...`);
+        const response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          console.log(`[lark-client] Download success via provided URL - size: ${buffer.length}`);
+          return buffer;
+        } else {
+          console.log(`[lark-client] Download via provided URL failed: ${response.status}`);
+        }
+      } catch (urlError) {
+        console.log(`[lark-client] Download via provided URL error:`, urlError);
       }
-
-      return Buffer.concat(chunks);
     }
 
-    // Lark SDKのレスポンス形式の場合（getReadableStreamメソッドを持つオブジェクト）
-    // @ts-ignore
-    if (response && typeof response === 'object' && response.getReadableStream) {
-      console.log(`[lark-client] Response has getReadableStream method`);
-      // @ts-ignore
-      const stream = response.getReadableStream();
-      const chunks: Buffer[] = [];
-      for await (const chunk of stream) {
-        chunks.push(Buffer.from(chunk));
+    // 方法2: bitable_perm付きのダウンロードURLを構築
+    const baseToken = getLarkBaseToken();
+    const constructedUrl = `https://open.feishu.cn/open-apis/drive/v1/medias/${fileToken}/download?extra=${encodeURIComponent(JSON.stringify({ bitablePerm: { tableId: "*", rev: 0 } }))}`;
+
+    if (accessToken) {
+      try {
+        console.log(`[lark-client] Downloading from constructed URL...`);
+        const response = await fetch(constructedUrl, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          console.log(`[lark-client] Download success via constructed URL - size: ${buffer.length}`);
+          return buffer;
+        } else {
+          const errorText = await response.text();
+          console.log(`[lark-client] Download via constructed URL failed: ${response.status}`, errorText);
+        }
+      } catch (constructedError) {
+        console.log(`[lark-client] Download via constructed URL error:`, constructedError);
       }
-      return Buffer.concat(chunks);
     }
 
-    // その他の場合はnullを返す（型安全性のため）
-    console.log(`[lark-client] Unknown response type: ${typeof response}`);
-    return null as unknown as Buffer;
+    // 方法3: drive.media.download を試行
+    try {
+      const response = await client.drive.media.download({
+        path: {
+          file_token: fileToken,
+        },
+        params: {
+          extra: JSON.stringify({ bitablePerm: { tableId: "*", rev: 0 } }),
+        },
+      });
+
+      if (response) {
+        const chunks: Buffer[] = [];
+
+        // @ts-ignore
+        if (typeof response[Symbol.asyncIterator] === 'function') {
+          // @ts-ignore
+          for await (const chunk of response) {
+            chunks.push(Buffer.from(chunk));
+          }
+          if (chunks.length > 0) {
+            const buffer = Buffer.concat(chunks);
+            console.log(`[lark-client] Download success via SDK - size: ${buffer.length}`);
+            return buffer;
+          }
+        }
+
+        if (Buffer.isBuffer(response)) {
+          console.log(`[lark-client] Download success - direct buffer - size: ${response.length}`);
+          return response;
+        }
+      }
+    } catch (downloadError) {
+      console.log(`[lark-client] drive.media.download failed:`, downloadError);
+    }
+
+    console.error("[lark-client] All download methods failed");
+    return null;
   } catch (error) {
-    console.error("Error downloading file from Lark:", error);
+    console.error("[lark-client] Error downloading attachment from Lark Base:", error);
     throw error;
   }
 }

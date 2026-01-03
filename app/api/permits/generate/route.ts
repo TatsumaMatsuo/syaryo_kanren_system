@@ -108,13 +108,19 @@ export async function POST(request: NextRequest) {
     // 既存の許可証があれば無効化
     await revokeExistingPermit(vehicle_id);
 
+    // 車両情報（車名・メーカー）を組み立て（null対応）
+    const vehicleModelParts = [vehicle.manufacturer, vehicle.model_name].filter(Boolean);
+    const vehicleModel = vehicleModelParts.length > 0 ? vehicleModelParts.join(" ") : "（未登録）";
+
     // 許可証を作成（まずレコードを作成してIDを取得）
     const permitData = {
       employee_id,
       employee_name: employee.employee_name,
       vehicle_id,
       vehicle_number: vehicle.vehicle_number,
-      vehicle_model: `${vehicle.manufacturer} ${vehicle.model_name}`,
+      vehicle_model: vehicleModel,
+      manufacturer: vehicle.manufacturer || "",
+      model_name: vehicle.model_name || "",
       expiration_date: expirationDate,
     };
 
@@ -126,7 +132,7 @@ export async function POST(request: NextRequest) {
     const fileKey = await generatePermitPdf({
       employeeName: employee.employee_name,
       vehicleNumber: vehicle.vehicle_number,
-      vehicleModel: `${vehicle.manufacturer} ${vehicle.model_name}`,
+      vehicleModel: vehicleModel,
       issueDate: new Date(),
       expirationDate,
       permitId: permit.id,

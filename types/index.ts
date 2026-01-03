@@ -14,6 +14,16 @@ export type NotificationType =
 export type NotificationStatus = "sent" | "failed";
 export type PermitStatus = "valid" | "expired" | "revoked";
 
+// Lark添付ファイル型
+export interface LarkAttachment {
+  file_token: string;
+  name: string;
+  size: number;
+  type: string;
+  tmp_url?: string; // Lark Baseから取得時の一時ダウンロードURL（バッチAPI）
+  url?: string; // Lark Baseから取得時の直接ダウンロードURL
+}
+
 // 社員型
 export interface Employee {
   employee_id: string;
@@ -36,7 +46,7 @@ export interface DriversLicense {
   license_type: string;
   issue_date: Date;
   expiration_date: Date;
-  image_url: string;
+  image_attachment: LarkAttachment | null;
   status: Status;
   approval_status: ApprovalStatus;
   rejection_reason?: string;
@@ -56,7 +66,7 @@ export interface VehicleRegistration {
   model_name: string;
   inspection_expiration_date: Date;
   owner_name: string;
-  image_url: string;
+  image_attachment: LarkAttachment | null;
   status: Status;
   approval_status: ApprovalStatus;
   rejection_reason?: string;
@@ -80,7 +90,7 @@ export interface InsurancePolicy {
   liability_personal_unlimited: boolean; // 対人補償無制限
   liability_property_amount: number; // 対物補償金額（万円単位）
   passenger_injury_amount: number; // 搭乗者傷害金額（万円単位）
-  image_url: string;
+  image_attachment: LarkAttachment | null;
   status: Status;
   approval_status: ApprovalStatus;
   rejection_reason?: string;
@@ -151,7 +161,9 @@ export interface Permit {
   employee_name: string;
   vehicle_id: string;
   vehicle_number: string;
-  vehicle_model: string;
+  vehicle_model: string; // 後方互換性のため残す（メーカー + 車名）
+  manufacturer?: string; // メーカー
+  model_name?: string; // 車名
   issue_date: Date;
   expiration_date: Date;
   permit_file_key: string;
@@ -168,5 +180,7 @@ export interface CreatePermitInput {
   vehicle_id: string;
   vehicle_number: string;
   vehicle_model: string;
+  manufacturer?: string; // メーカー
+  model_name?: string; // 車名
   expiration_date: Date;
 }

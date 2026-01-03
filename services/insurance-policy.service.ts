@@ -1,4 +1,4 @@
-import { InsurancePolicy } from "@/types";
+import { InsurancePolicy, LarkAttachment } from "@/types";
 import {
   getBaseRecords,
   createBaseRecord,
@@ -6,6 +6,23 @@ import {
   deleteBaseRecord,
 } from "@/lib/lark-client";
 import { LARK_TABLES, INSURANCE_POLICY_FIELDS } from "@/lib/lark-tables";
+
+/**
+ * Lark Base添付ファイル配列から最初の添付ファイルを取得
+ */
+function extractAttachment(attachmentField: any): LarkAttachment | null {
+  if (!attachmentField || !Array.isArray(attachmentField) || attachmentField.length === 0) {
+    return null;
+  }
+  const first = attachmentField[0];
+  return {
+    file_token: first.file_token || first.token || "",
+    name: first.name || "",
+    size: first.size || 0,
+    type: first.type || first.mime_type || "",
+    tmp_url: first.tmp_url || first.url || "",
+  };
+}
 
 /**
  * 任意保険証一覧を取得（削除済みを除外）
@@ -42,7 +59,7 @@ export async function getInsurancePolicies(employeeId?: string): Promise<Insuran
         liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
         liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
         passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
-        image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
+        image_attachment: extractAttachment(item.fields[INSURANCE_POLICY_FIELDS.image_attachment]),
         status: item.fields[INSURANCE_POLICY_FIELDS.status],
         approval_status: item.fields[INSURANCE_POLICY_FIELDS.approval_status],
         rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
@@ -85,7 +102,7 @@ export async function createInsurancePolicy(
       [INSURANCE_POLICY_FIELDS.liability_personal_unlimited]: data.liability_personal_unlimited || false,
       [INSURANCE_POLICY_FIELDS.liability_property_amount]: data.liability_property_amount || 0,
       [INSURANCE_POLICY_FIELDS.passenger_injury_amount]: data.passenger_injury_amount || 0,
-      [INSURANCE_POLICY_FIELDS.image_url]: data.image_url || "",
+      [INSURANCE_POLICY_FIELDS.image_attachment]: data.image_attachment ? [data.image_attachment] : [],
       [INSURANCE_POLICY_FIELDS.status]: data.status,
       [INSURANCE_POLICY_FIELDS.approval_status]: data.approval_status,
       [INSURANCE_POLICY_FIELDS.rejection_reason]: data.rejection_reason || "",
@@ -128,7 +145,8 @@ export async function updateInsurancePolicy(
       fields[INSURANCE_POLICY_FIELDS.coverage_end_date] = data.coverage_end_date.getTime();
     if (data.insured_amount !== undefined)
       fields[INSURANCE_POLICY_FIELDS.insured_amount] = data.insured_amount;
-    if (data.image_url) fields[INSURANCE_POLICY_FIELDS.image_url] = data.image_url;
+    if (data.image_attachment !== undefined)
+      fields[INSURANCE_POLICY_FIELDS.image_attachment] = data.image_attachment ? [data.image_attachment] : [];
     if (data.status) fields[INSURANCE_POLICY_FIELDS.status] = data.status;
     if (data.approval_status)
       fields[INSURANCE_POLICY_FIELDS.approval_status] = data.approval_status;
@@ -236,7 +254,7 @@ export async function getExpiringInsurancePolicies(warningDays: number = 30): Pr
           liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
           liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
           passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
-          image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
+          image_attachment: extractAttachment(item.fields[INSURANCE_POLICY_FIELDS.image_attachment]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
@@ -250,6 +268,74 @@ export async function getExpiringInsurancePolicies(warningDays: number = 30): Pr
     return policies;
   } catch (error) {
     console.error("Error fetching expiring insurance policies:", error);
+    throw error;
+  }
+}
+
+/**
+ * 削除済みの任意保険証を取得
+ */
+export async function getDeletedInsurancePolicies(employeeId?: string): Promise<InsurancePolicy[]> {
+  try {
+    const filter = employeeId
+      ? `CurrentValue.[employee_id]="${employeeId}"`
+      : undefined;
+
+    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
+      filter,
+    });
+
+    const policies: InsurancePolicy[] =
+      response.data?.items
+        ?.filter((item: any) => item.fields[INSURANCE_POLICY_FIELDS.deleted_flag] === true)
+        ?.map((item: any) => ({
+          id: item.record_id,
+          employee_id: item.fields[INSURANCE_POLICY_FIELDS.employee_id],
+          policy_number: item.fields[INSURANCE_POLICY_FIELDS.policy_number],
+          insurance_company: item.fields[INSURANCE_POLICY_FIELDS.insurance_company],
+          policy_type: item.fields[INSURANCE_POLICY_FIELDS.policy_type],
+          coverage_start_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_start_date]),
+          coverage_end_date: new Date(item.fields[INSURANCE_POLICY_FIELDS.coverage_end_date]),
+          insured_amount: item.fields[INSURANCE_POLICY_FIELDS.insured_amount],
+          liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
+          liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
+          passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
+          image_attachment: extractAttachment(item.fields[INSURANCE_POLICY_FIELDS.image_attachment]),
+          status: item.fields[INSURANCE_POLICY_FIELDS.status],
+          approval_status: item.fields[INSURANCE_POLICY_FIELDS.approval_status],
+          rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],
+          created_at: item.fields[INSURANCE_POLICY_FIELDS.created_at]
+            ? new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at])
+            : new Date(),
+          updated_at: item.fields[INSURANCE_POLICY_FIELDS.created_at]
+            ? new Date(item.fields[INSURANCE_POLICY_FIELDS.created_at])
+            : new Date(),
+          deleted_flag: true,
+          deleted_at: item.fields[INSURANCE_POLICY_FIELDS.deleted_at]
+            ? new Date(item.fields[INSURANCE_POLICY_FIELDS.deleted_at])
+            : undefined,
+        })) || [];
+
+    return policies;
+  } catch (error) {
+    console.error("Error fetching deleted insurance policies:", error);
+    throw error;
+  }
+}
+
+/**
+ * 削除済みの任意保険証を復元
+ */
+export async function restoreInsurancePolicy(id: string): Promise<void> {
+  try {
+    const fields = {
+      [INSURANCE_POLICY_FIELDS.deleted_flag]: false,
+      [INSURANCE_POLICY_FIELDS.deleted_at]: null,
+    };
+
+    await updateBaseRecord(LARK_TABLES.INSURANCE_POLICIES, id, fields);
+  } catch (error) {
+    console.error("Error restoring insurance policy:", error);
     throw error;
   }
 }
@@ -299,7 +385,7 @@ export async function getExpiredInsurancePolicies(): Promise<InsurancePolicy[]> 
           liability_personal_unlimited: item.fields[INSURANCE_POLICY_FIELDS.liability_personal_unlimited] || false,
           liability_property_amount: item.fields[INSURANCE_POLICY_FIELDS.liability_property_amount] || 0,
           passenger_injury_amount: item.fields[INSURANCE_POLICY_FIELDS.passenger_injury_amount] || 0,
-          image_url: item.fields[INSURANCE_POLICY_FIELDS.image_url],
+          image_attachment: extractAttachment(item.fields[INSURANCE_POLICY_FIELDS.image_attachment]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[INSURANCE_POLICY_FIELDS.rejection_reason],

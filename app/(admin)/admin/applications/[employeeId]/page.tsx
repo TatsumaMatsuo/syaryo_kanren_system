@@ -37,6 +37,30 @@ function isPdfFileByExtension(filename: string | undefined): boolean {
   return ext === 'pdf';
 }
 
+// image_attachmentからファイルURLを取得
+function getAttachmentUrl(attachment: any): string | null {
+  if (!attachment) return null;
+  // 配列の場合は最初の要素を使用
+  const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  // API経由でダウンロード（Lark URLは認証が必要なため直接使用不可）
+  if (att?.file_token) {
+    // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
+    const baseUrl = `/api/attachments/${att.file_token}`;
+    if (att.url) {
+      return `${baseUrl}?url=${encodeURIComponent(att.url)}`;
+    }
+    return baseUrl;
+  }
+  return null;
+}
+
+// image_attachmentからファイル名を取得（PDF判定用）
+function getAttachmentFilename(attachment: any): string | null {
+  if (!attachment) return null;
+  const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  return att?.name || null;
+}
+
 export default function ApplicationDetailPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -64,23 +88,23 @@ export default function ApplicationDetailPage() {
     setImageRotation(0);
     setFileContentType(null);
 
-    // 現在のドキュメントのimage_urlを取得
+    // 現在のドキュメントのimage_attachmentからURLを取得
     const getImageUrl = () => {
       if (!application) return null;
       switch (selectedDoc.category) {
         case "license":
-          return application.license?.image_url;
+          return getAttachmentUrl(application.license?.image_attachment);
         case "vehicle":
-          return application.vehicles[selectedDoc.index]?.image_url;
+          return getAttachmentUrl(application.vehicles[selectedDoc.index]?.image_attachment);
         case "insurance":
-          return application.insurances[selectedDoc.index]?.image_url;
+          return getAttachmentUrl(application.insurances[selectedDoc.index]?.image_attachment);
       }
     };
 
     const imageUrl = getImageUrl();
     if (imageUrl) {
       // HEADリクエストでContent-Typeを取得
-      fetch(`/api/files/${imageUrl}`, { method: 'HEAD' })
+      fetch(imageUrl, { method: 'HEAD' })
         .then(response => {
           const contentType = response.headers.get('Content-Type');
           setFileContentType(contentType);
@@ -347,7 +371,14 @@ export default function ApplicationDetailPage() {
     }
     // Content-Typeが取得できない場合は拡張子で判定（後方互換性）
     const currentDoc = getCurrentDocument();
-    return isPdfFileByExtension(currentDoc?.image_url);
+    const filename = getAttachmentFilename(currentDoc?.image_attachment);
+    return isPdfFileByExtension(filename || undefined);
+  };
+
+  // 現在のドキュメントのファイルURLを取得
+  const getCurrentFileUrl = () => {
+    const currentDoc = getCurrentDocument();
+    return getAttachmentUrl(currentDoc?.image_attachment);
   };
 
   // ローディング中
@@ -812,11 +843,11 @@ export default function ApplicationDetailPage() {
 
         {/* 右パネル: 画像/PDFビューア */}
         <div className="w-1/2 bg-gray-900 flex flex-col">
-          {currentDoc?.image_url ? (
+          {getCurrentFileUrl() ? (
             // PDFの場合はPDFビューアを表示
             isPdfFile() ? (
               <PDFViewer
-                fileUrl={`/api/files/${currentDoc.image_url}`}
+                fileUrl={getCurrentFileUrl()!}
                 title={getDocumentTitle()}
               />
             ) : (
@@ -854,7 +885,7 @@ export default function ApplicationDetailPage() {
                       {/* PDFダウンロードボタン */}
                       <div className="absolute top-4 right-4 z-10">
                         <a
-                          href={`/api/files/${currentDoc.image_url}`}
+                          href={getCurrentFileUrl()!}
                           download
                           className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors flex items-center space-x-2"
                           title="ダウンロード"
@@ -865,7 +896,7 @@ export default function ApplicationDetailPage() {
                       </div>
                       {/* PDF表示 */}
                       <iframe
-                        src={`/api/files/${currentDoc.image_url}`}
+                        src={getCurrentFileUrl()!}
                         className="w-full h-full"
                         title={getDocumentTitle()}
                       />
@@ -907,7 +938,7 @@ export default function ApplicationDetailPage() {
                               <RotateCw className="h-5 w-5 text-gray-700" />
                             </button>
                             <a
-                              href={`/api/files/${currentDoc.image_url}`}
+                              href={getCurrentFileUrl()!}
                               download
                               className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
                               title="ダウンロード"
@@ -921,7 +952,7 @@ export default function ApplicationDetailPage() {
                             contentClass="w-full h-full flex items-center justify-center"
                           >
                             <img
-                              src={`/api/files/${currentDoc.image_url}`}
+                              src={getCurrentFileUrl()!}
                               alt={getDocumentTitle()}
                               className="max-w-full max-h-full object-contain transition-transform duration-300"
                               style={{ transform: `rotate(${imageRotation}deg)` }}

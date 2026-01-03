@@ -37,8 +37,12 @@ export async function getApplicationOverview(
 
     // 免許証: 1:1なのでMapでOK（最初の1件を使用）
     const licensesMap = new Map<string, DriversLicense>();
+    console.log(`DEBUG: licensesResponse items count: ${licensesResponse.data?.items?.length || 0}`);
+    if (licensesResponse.data?.items?.length > 0) {
+      console.log(`DEBUG: First license item fields:`, JSON.stringify(licensesResponse.data.items[0].fields, null, 2));
+    }
     licensesResponse.data?.items
-      ?.filter((item: any) => item.fields.deleted_flag === false)
+      ?.filter((item: any) => item.fields.deleted_flag !== true)
       ?.forEach((item: any) => {
         const empId = item.fields.employee_id;
         // 1:1なので最初の1件だけ保存
@@ -50,7 +54,7 @@ export async function getApplicationOverview(
             license_type: item.fields.license_type,
             issue_date: item.fields.issue_date ? new Date(item.fields.issue_date) : undefined,
             expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
-            image_url: item.fields.image_url,
+            image_attachment: item.fields.image_attachment,
             status: item.fields.status,
             approval_status: item.fields.approval_status,
             rejection_reason: item.fields.rejection_reason,
@@ -64,7 +68,7 @@ export async function getApplicationOverview(
     // 車検証: 1:多なので配列でグループ化
     const vehiclesMap = new Map<string, VehicleRegistration[]>();
     vehiclesResponse.data?.items
-      ?.filter((item: any) => item.fields.deleted_flag === false)
+      ?.filter((item: any) => item.fields.deleted_flag !== true)
       ?.forEach((item: any) => {
         const empId = item.fields.employee_id;
         const vehicle: VehicleRegistration = {
@@ -76,7 +80,7 @@ export async function getApplicationOverview(
           model_name: item.fields.model_name,
           inspection_expiration_date: item.fields.expiration_date ? new Date(item.fields.expiration_date) : undefined,
           owner_name: item.fields.owner_name,
-          image_url: item.fields.image_url,
+          image_attachment: item.fields.image_attachment,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
           rejection_reason: item.fields.rejection_reason,
@@ -94,7 +98,7 @@ export async function getApplicationOverview(
     // 保険証: 1:多なので配列でグループ化
     const insurancesMap = new Map<string, InsurancePolicy[]>();
     insurancesResponse.data?.items
-      ?.filter((item: any) => item.fields.deleted_flag === false)
+      ?.filter((item: any) => item.fields.deleted_flag !== true)
       ?.forEach((item: any) => {
         const empId = item.fields.employee_id;
         const insurance: InsurancePolicy = {
@@ -110,7 +114,7 @@ export async function getApplicationOverview(
           liability_personal_unlimited: item.fields.liability_personal_unlimited || false,
           liability_property_amount: item.fields.liability_property_amount || 0,
           passenger_injury_amount: item.fields.passenger_injury_amount || 0,
-          image_url: item.fields.image_url,
+          image_attachment: item.fields.image_attachment,
           status: item.fields.status,
           approval_status: item.fields.approval_status,
           rejection_reason: item.fields.rejection_reason,

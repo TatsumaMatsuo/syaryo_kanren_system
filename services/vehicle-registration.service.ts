@@ -1,4 +1,4 @@
-import { VehicleRegistration } from "@/types";
+import { VehicleRegistration, LarkAttachment } from "@/types";
 import {
   getBaseRecords,
   createBaseRecord,
@@ -6,6 +6,23 @@ import {
   deleteBaseRecord,
 } from "@/lib/lark-client";
 import { LARK_TABLES, VEHICLE_REGISTRATION_FIELDS } from "@/lib/lark-tables";
+
+/**
+ * Lark Base添付ファイル配列から最初の添付ファイルを取得
+ */
+function extractAttachment(attachmentField: any): LarkAttachment | null {
+  if (!attachmentField || !Array.isArray(attachmentField) || attachmentField.length === 0) {
+    return null;
+  }
+  const first = attachmentField[0];
+  return {
+    file_token: first.file_token || first.token || "",
+    name: first.name || "",
+    size: first.size || 0,
+    type: first.type || first.mime_type || "",
+    tmp_url: first.tmp_url || first.url || "",
+  };
+}
 
 /**
  * 車検証一覧を取得（削除済みを除外）
@@ -45,7 +62,7 @@ export async function getVehicleRegistrations(
           item.fields[VEHICLE_REGISTRATION_FIELDS.expiration_date]
         ),
         owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
-        image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
+        image_attachment: extractAttachment(item.fields[VEHICLE_REGISTRATION_FIELDS.image_attachment]),
         status: item.fields[VEHICLE_REGISTRATION_FIELDS.status],
         approval_status: item.fields[VEHICLE_REGISTRATION_FIELDS.approval_status],
         rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
@@ -77,12 +94,16 @@ export async function createVehicleRegistration(
 ): Promise<VehicleRegistration> {
   try {
     console.log(`[vehicle-registration] Creating with employee_id: ${data.employee_id}`);
-    // テーブルに存在する最小限のフィールドのみを送信
+    // 車検証データをLark Baseに保存
+    // NOTE: vehicle_type フィールドはLark Baseテーブルに存在しないため除外
     const fields: Record<string, any> = {
       [VEHICLE_REGISTRATION_FIELDS.employee_id]: data.employee_id,
       [VEHICLE_REGISTRATION_FIELDS.vehicle_number]: data.vehicle_number,
+      [VEHICLE_REGISTRATION_FIELDS.manufacturer]: data.manufacturer || null,
+      [VEHICLE_REGISTRATION_FIELDS.model_name]: data.model_name || null,
       [VEHICLE_REGISTRATION_FIELDS.expiration_date]: data.inspection_expiration_date.getTime(),
-      [VEHICLE_REGISTRATION_FIELDS.image_url]: data.image_url || "",
+      [VEHICLE_REGISTRATION_FIELDS.owner_name]: data.owner_name || null,
+      [VEHICLE_REGISTRATION_FIELDS.image_attachment]: data.image_attachment ? [data.image_attachment] : [],
       [VEHICLE_REGISTRATION_FIELDS.status]: data.status,
       [VEHICLE_REGISTRATION_FIELDS.approval_status]: data.approval_status,
       [VEHICLE_REGISTRATION_FIELDS.deleted_flag]: false,
@@ -121,7 +142,8 @@ export async function updateVehicleRegistration(
     if (data.inspection_expiration_date)
       fields[VEHICLE_REGISTRATION_FIELDS.expiration_date] = data.inspection_expiration_date.getTime();
     if (data.owner_name) fields[VEHICLE_REGISTRATION_FIELDS.owner_name] = data.owner_name;
-    if (data.image_url) fields[VEHICLE_REGISTRATION_FIELDS.image_url] = data.image_url;
+    if (data.image_attachment !== undefined)
+      fields[VEHICLE_REGISTRATION_FIELDS.image_attachment] = data.image_attachment ? [data.image_attachment] : [];
     if (data.status) fields[VEHICLE_REGISTRATION_FIELDS.status] = data.status;
     if (data.approval_status)
       fields[VEHICLE_REGISTRATION_FIELDS.approval_status] = data.approval_status;
@@ -226,7 +248,7 @@ export async function getExpiringVehicleRegistrations(warningDays: number = 30):
           model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
           inspection_expiration_date: new Date(expDate),
           owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
-          image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
+          image_attachment: extractAttachment(item.fields[VEHICLE_REGISTRATION_FIELDS.image_attachment]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],
@@ -286,7 +308,7 @@ export async function getExpiredVehicleRegistrations(): Promise<VehicleRegistrat
           model_name: item.fields[VEHICLE_REGISTRATION_FIELDS.model_name],
           inspection_expiration_date: new Date(expDate),
           owner_name: item.fields[VEHICLE_REGISTRATION_FIELDS.owner_name],
-          image_url: item.fields[VEHICLE_REGISTRATION_FIELDS.image_url],
+          image_attachment: extractAttachment(item.fields[VEHICLE_REGISTRATION_FIELDS.image_attachment]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[VEHICLE_REGISTRATION_FIELDS.rejection_reason],

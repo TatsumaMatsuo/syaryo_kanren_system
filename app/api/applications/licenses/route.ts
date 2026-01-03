@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       license_type: body.license_type,
       issue_date: new Date(body.issue_date),
       expiration_date: new Date(body.expiration_date),
-      image_url: body.image_url,
+      image_attachment: body.image_attachment || null,
       status: "temporary",
       approval_status: "pending",
       deleted_flag: false,

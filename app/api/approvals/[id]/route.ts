@@ -62,18 +62,23 @@ async function checkAndGeneratePermit(
         );
 
         // 既存の有効な許可証をチェック
+        console.log(`[許可証チェック] 車両ID: ${vehicle.id}, 車両番号: ${vehicle.vehicle_number}`);
         const existingPermit = await getValidPermitByVehicleId(vehicle.id);
+        console.log(`[許可証チェック] 既存許可証: ${existingPermit ? `あり (ID: ${existingPermit.id})` : "なし"}`);
         if (existingPermit) {
           // 有効期限が同じ場合はスキップ（再発行不要）
           const existingExpTime = existingPermit.expiration_date.getTime();
           const newExpTime = expirationDate.getTime();
+          console.log(`[許可証チェック] 既存期限: ${existingPermit.expiration_date.toISOString()}, 新期限: ${expirationDate.toISOString()}`);
           if (Math.abs(existingExpTime - newExpTime) < 86400000) { // 1日以内の差は同じとみなす
-            console.log(`許可証は既に発行済みです（有効期限同一）: ${vehicle.vehicle_number}`);
+            console.log(`[許可証スキップ] 許可証は既に発行済みです（有効期限同一）: ${vehicle.vehicle_number}`);
             continue;
           }
           // 有効期限が変わった場合は既存を無効化して再発行
-          console.log(`許可証を再発行します（有効期限変更）: ${vehicle.vehicle_number}`);
+          console.log(`[許可証再発行] 許可証を再発行します（有効期限変更）: ${vehicle.vehicle_number}`);
           await revokeExistingPermit(vehicle.id);
+        } else {
+          console.log(`[許可証新規] 新規許可証を発行します: ${vehicle.vehicle_number}`);
         }
 
         // 車両情報（車名・メーカー）を組み立て（null対応）

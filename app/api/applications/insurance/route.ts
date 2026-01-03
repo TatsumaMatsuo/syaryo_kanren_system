@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       liability_personal_unlimited: body.liability_personal_unlimited ?? false,
       liability_property_amount: body.liability_property_amount ?? 0,
       passenger_injury_amount: body.passenger_injury_amount ?? 0,
-      image_url: body.image_url,
+      image_attachment: body.image_attachment || null,
       status: "temporary",
       approval_status: "pending",
       deleted_flag: false,

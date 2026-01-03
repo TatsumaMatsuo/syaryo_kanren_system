@@ -43,12 +43,14 @@ export async function POST(
     // 車両情報を取得（permitに保存されている値が不正な場合は車検証から取得）
     let vehicleNumber = permit.vehicle_number;
     let vehicleModel = permit.vehicle_model;
-    if (!vehicleModel || vehicleModel === "null null" || vehicleModel.includes("undefined")) {
+    if (!vehicleModel || vehicleModel === "null null" || vehicleModel.includes("undefined") || vehicleModel === "（未登録）") {
       const vehicles = await getVehicleRegistrations(permit.employee_id);
       const vehicle = vehicles.find(v => v.id === permit.vehicle_id) || vehicles[0];
       if (vehicle) {
         vehicleNumber = vehicle.vehicle_number || vehicleNumber;
-        vehicleModel = `${vehicle.manufacturer || ""} ${vehicle.model_name || ""}`.trim();
+        // 車名・メーカーを組み立て（null対応）
+        const modelParts = [vehicle.manufacturer, vehicle.model_name].filter(Boolean);
+        vehicleModel = modelParts.length > 0 ? modelParts.join(" ") : "（未登録）";
       }
     }
 

@@ -78,10 +78,16 @@ export function useFileType(fileUrl: string | null | undefined): UseFileTypeResu
 
 /**
  * ファイルキーからAPIのURLを生成
- * @param fileKey - ファイルキー（box_xxx, file_xxx, またはローカルファイル名）
+ * @param fileKey - ファイルトークン（Lark Drive添付ファイル）
+ * @param downloadUrl - オプションのLark直接ダウンロードURL
  * @returns API URL
  */
-export function getFileApiUrl(fileKey: string | null | undefined): string | null {
+export function getFileApiUrl(fileKey: string | null | undefined, downloadUrl?: string): string | null {
   if (!fileKey) return null;
-  return `/api/files/${fileKey}`;
+  // 新しいLark Base添付ファイル形式を使用
+  const baseUrl = `/api/attachments/${fileKey}`;
+  if (downloadUrl) {
+    return `${baseUrl}?url=${encodeURIComponent(downloadUrl)}`;
+  }
+  return baseUrl;
 }

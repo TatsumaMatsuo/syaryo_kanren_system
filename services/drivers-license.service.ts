@@ -1,4 +1,4 @@
-import { DriversLicense } from "@/types";
+import { DriversLicense, LarkAttachment } from "@/types";
 import {
   getBaseRecords,
   createBaseRecord,
@@ -6,6 +6,24 @@ import {
   deleteBaseRecord,
 } from "@/lib/lark-client";
 import { LARK_TABLES, DRIVERS_LICENSE_FIELDS } from "@/lib/lark-tables";
+
+/**
+ * Lark Base添付ファイル配列から最初の添付ファイルを取得
+ */
+function extractAttachment(attachmentField: any): LarkAttachment | null {
+  if (!attachmentField || !Array.isArray(attachmentField) || attachmentField.length === 0) {
+    return null;
+  }
+  const first = attachmentField[0];
+  console.log("[drivers-license] Attachment data:", JSON.stringify(first, null, 2));
+  return {
+    file_token: first.file_token || first.token || "",
+    name: first.name || "",
+    size: first.size || 0,
+    type: first.type || first.mime_type || "",
+    tmp_url: first.tmp_url || first.url || "",
+  };
+}
 
 /**
  * 免許証一覧を取得（削除済みを除外）
@@ -31,7 +49,7 @@ export async function getDriversLicenses(employeeId?: string): Promise<DriversLi
         license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
         issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
         expiration_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.expiration_date]),
-        image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
+        image_attachment: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment]),
         status: item.fields[DRIVERS_LICENSE_FIELDS.status],
         approval_status: item.fields[DRIVERS_LICENSE_FIELDS.approval_status],
         rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
@@ -67,7 +85,7 @@ export async function createDriversLicense(
       [DRIVERS_LICENSE_FIELDS.license_number]: data.license_number,
       [DRIVERS_LICENSE_FIELDS.license_type]: data.license_type,
       [DRIVERS_LICENSE_FIELDS.expiration_date]: data.expiration_date.getTime(), // Unixタイムスタンプ（ミリ秒）
-      [DRIVERS_LICENSE_FIELDS.image_url]: data.image_url || "",
+      [DRIVERS_LICENSE_FIELDS.image_attachment]: data.image_attachment ? [data.image_attachment] : [],
       [DRIVERS_LICENSE_FIELDS.status]: data.status,
       [DRIVERS_LICENSE_FIELDS.approval_status]: data.approval_status,
       [DRIVERS_LICENSE_FIELDS.deleted_flag]: false,
@@ -102,7 +120,8 @@ export async function updateDriversLicense(
     if (data.issue_date) fields[DRIVERS_LICENSE_FIELDS.issue_date] = data.issue_date.getTime();
     if (data.expiration_date)
       fields[DRIVERS_LICENSE_FIELDS.expiration_date] = data.expiration_date.getTime();
-    if (data.image_url) fields[DRIVERS_LICENSE_FIELDS.image_url] = data.image_url;
+    if (data.image_attachment !== undefined)
+      fields[DRIVERS_LICENSE_FIELDS.image_attachment] = data.image_attachment ? [data.image_attachment] : [];
     if (data.status) fields[DRIVERS_LICENSE_FIELDS.status] = data.status;
     if (data.approval_status)
       fields[DRIVERS_LICENSE_FIELDS.approval_status] = data.approval_status;
@@ -205,7 +224,7 @@ export async function getExpiringDriversLicenses(warningDays: number = 30): Prom
           license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
           issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
           expiration_date: new Date(expDate),
-          image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
+          image_attachment: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
@@ -263,7 +282,7 @@ export async function getExpiredDriversLicenses(): Promise<DriversLicense[]> {
           license_type: item.fields[DRIVERS_LICENSE_FIELDS.license_type],
           issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
           expiration_date: new Date(expDate),
-          image_url: item.fields[DRIVERS_LICENSE_FIELDS.image_url],
+          image_attachment: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],

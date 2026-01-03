@@ -110,13 +110,19 @@ export async function POST(request: NextRequest) {
           approvedInsurance.coverage_end_date
         );
 
+        // 車両情報（車名・メーカー）を組み立て（null対応）
+        const vehicleModelParts = [vehicle.manufacturer, vehicle.model_name].filter(Boolean);
+        const vehicleModel = vehicleModelParts.length > 0 ? vehicleModelParts.join(" ") : "（未登録）";
+
         // 許可証を作成
         const permitData = {
           employee_id: employee_id,
           employee_name: employee.employee_name,
           vehicle_id: vehicle.id,
           vehicle_number: vehicle.vehicle_number,
-          vehicle_model: `${vehicle.manufacturer || ""} ${vehicle.model_name || ""}`.trim(),
+          vehicle_model: vehicleModel,
+          manufacturer: vehicle.manufacturer || "",
+          model_name: vehicle.model_name || "",
           expiration_date: expirationDate,
         };
 
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
         const fileKey = await generatePermitPdf({
           employeeName: employee.employee_name,
           vehicleNumber: vehicle.vehicle_number,
-          vehicleModel: `${vehicle.manufacturer || ""} ${vehicle.model_name || ""}`.trim(),
+          vehicleModel: vehicleModel,
           issueDate: new Date(),
           expirationDate,
           permitId: permit.id,

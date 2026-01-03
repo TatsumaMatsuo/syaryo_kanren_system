@@ -33,6 +33,8 @@ interface Permit {
   vehicle_id: string;
   vehicle_number: string;
   vehicle_model: string;
+  manufacturer?: string;
+  model_name?: string;
   issue_date: string;
   expiration_date: string;
   permit_file_key: string;
@@ -514,7 +516,7 @@ export default function AdminPermitsPage() {
             <tbody className="divide-y divide-gray-100">
               {filteredPermits.map((permit, index) => (
                 <tr
-                  key={permit.id}
+                  key={permit.id ? `${permit.id}` : `permit-${index}-${permit.employee_id}-${permit.vehicle_id}`}
                   className={`hover:bg-blue-50/50 transition-colors ${
                     index % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                   }`}
@@ -544,7 +546,9 @@ export default function AdminPermitsPage() {
                           {permit.vehicle_number}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {permit.vehicle_model}
+                          {permit.manufacturer && permit.model_name
+                            ? `${permit.manufacturer} ${permit.model_name}`
+                            : permit.vehicle_model || "（未登録）"}
                         </p>
                       </div>
                     </div>

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       model_name: body.model_name,
       inspection_expiration_date: new Date(body.inspection_expiration_date),
       owner_name: body.owner_name,
-      image_url: body.image_url,
+      image_attachment: body.image_attachment || null,
       status: "temporary",
       approval_status: "pending",
       deleted_flag: false,

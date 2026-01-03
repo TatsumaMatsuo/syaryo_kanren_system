@@ -247,7 +247,7 @@ export const PermitTemplate: React.FC<PermitTemplateProps> = ({
               <Text style={styles.value}>{vehicleNumber}</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.label}>型式</Text>
+              <Text style={styles.label}>車名</Text>
               <Text style={styles.value}>{vehicleModel}</Text>
             </View>
           </View>

@@ -45,7 +45,7 @@ export const DRIVERS_LICENSE_FIELDS = {
   license_type: "license_type",
   issue_date: "issue_date",
   expiration_date: "expiration_date",
-  image_url: "image_url",
+  image_attachment: "image_attachment",
   status: "status",
   approval_status: "approval_status",
   rejection_reason: "rejection_reason",
@@ -65,7 +65,7 @@ export const VEHICLE_REGISTRATION_FIELDS = {
   expiration_date: "expiration_date",  // 実際のフィールド名
   registration_date: "registration_date",
   owner_name: "owner_name",
-  image_url: "image_url",
+  image_attachment: "image_attachment",
   status: "status",
   approval_status: "approval_status",
   rejection_reason: "rejection_reason",
@@ -88,7 +88,7 @@ export const INSURANCE_POLICY_FIELDS = {
   liability_personal_unlimited: "liability_personal_unlimited", // 対人補償無制限（チェックボックス）
   liability_property_amount: "liability_property_amount", // 対物補償金額（万円単位）
   passenger_injury_amount: "passenger_injury_amount", // 搭乗者傷害金額（万円単位）
-  image_url: "image_url",
+  image_attachment: "image_attachment",
   status: "status",
   approval_status: "approval_status",
   rejection_reason: "rejection_reason",
@@ -164,7 +164,9 @@ export const PERMIT_FIELDS = {
   employee_name: "employee_name",
   vehicle_id: "vehicle_id",
   vehicle_number: "vehicle_number",
-  vehicle_model: "vehicle_model",
+  vehicle_model: "vehicle_model", // 後方互換性のため残す（メーカー + 車名）
+  manufacturer: "manufacturer", // メーカー（新規追加）
+  model_name: "model_name", // 車名（新規追加）
   issue_date: "issue_date",
   expiration_date: "expiration_date",
   permit_file_key: "permit_file_key",

@@ -149,14 +149,15 @@ function ProxyApplicationContent() {
     setFormError(null);
 
     try {
-      let fileKey = "";
+      let imageAttachment = null;
       if (data.image_file) {
         const formData = new FormData();
         formData.append("file", data.image_file);
-        const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+        const uploadResponse = await fetch("/api/upload-attachment", { method: "POST", body: formData });
         if (!uploadResponse.ok) throw new Error("ファイルのアップロードに失敗しました");
         const uploadResult = await uploadResponse.json();
-        fileKey = uploadResult.file_key;
+        if (!uploadResult.success) throw new Error(uploadResult.error || "ファイルのアップロードに失敗しました");
+        imageAttachment = uploadResult.attachment;
       }
 
       const response = await fetch("/api/applications/licenses", {
@@ -168,7 +169,7 @@ function ProxyApplicationContent() {
           license_type: data.license_type,
           issue_date: data.issue_date.toISOString(),
           expiration_date: data.expiration_date.toISOString(),
-          image_url: fileKey,
+          image_attachment: imageAttachment,
         }),
       });
 
@@ -196,14 +197,15 @@ function ProxyApplicationContent() {
     setFormError(null);
 
     try {
-      let fileKey = "";
+      let imageAttachment = null;
       if (data.image_file) {
         const formData = new FormData();
         formData.append("file", data.image_file);
-        const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+        const uploadResponse = await fetch("/api/upload-attachment", { method: "POST", body: formData });
         if (!uploadResponse.ok) throw new Error("ファイルのアップロードに失敗しました");
         const uploadResult = await uploadResponse.json();
-        fileKey = uploadResult.file_key;
+        if (!uploadResult.success) throw new Error(uploadResult.error || "ファイルのアップロードに失敗しました");
+        imageAttachment = uploadResult.attachment;
       }
 
       const response = await fetch("/api/applications/vehicles", {
@@ -217,7 +219,7 @@ function ProxyApplicationContent() {
           model_name: data.model_name,
           inspection_expiration_date: data.inspection_expiration_date.toISOString(),
           owner_name: data.owner_name,
-          image_url: fileKey,
+          image_attachment: imageAttachment,
         }),
       });
 
@@ -245,14 +247,15 @@ function ProxyApplicationContent() {
     setFormError(null);
 
     try {
-      let fileKey = "";
+      let imageAttachment = null;
       if (data.image_file) {
         const formData = new FormData();
         formData.append("file", data.image_file);
-        const uploadResponse = await fetch("/api/upload", { method: "POST", body: formData });
+        const uploadResponse = await fetch("/api/upload-attachment", { method: "POST", body: formData });
         if (!uploadResponse.ok) throw new Error("ファイルのアップロードに失敗しました");
         const uploadResult = await uploadResponse.json();
-        fileKey = uploadResult.file_key;
+        if (!uploadResult.success) throw new Error(uploadResult.error || "ファイルのアップロードに失敗しました");
+        imageAttachment = uploadResult.attachment;
       }
 
       const response = await fetch("/api/applications/insurance", {
@@ -269,7 +272,7 @@ function ProxyApplicationContent() {
           liability_personal_unlimited: data.liability_personal_unlimited,
           liability_property_amount: data.liability_property_amount,
           passenger_injury_amount: data.passenger_injury_amount,
-          image_url: fileKey,
+          image_attachment: imageAttachment,
         }),
       });
 

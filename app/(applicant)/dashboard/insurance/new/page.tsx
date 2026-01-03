@@ -31,13 +31,13 @@ export default function NewInsurancePage() {
     setError(null);
 
     try {
-      // 1. ファイルをLarkにアップロード
-      let fileKey = "";
+      // 1. ファイルをLark Base添付ファイルとしてアップロード
+      let imageAttachment = null;
       if (data.image_file) {
         const formData = new FormData();
         formData.append("file", data.image_file);
 
-        const uploadResponse = await fetch("/api/upload", {
+        const uploadResponse = await fetch("/api/upload-attachment", {
           method: "POST",
           body: formData,
         });
@@ -48,7 +48,10 @@ export default function NewInsurancePage() {
         }
 
         const uploadResult = await uploadResponse.json();
-        fileKey = uploadResult.file_key;
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.error || "ファイルのアップロードに失敗しました");
+        }
+        imageAttachment = uploadResult.attachment;
       }
 
       // セッションからユーザーID（メールアドレス）を取得
@@ -72,7 +75,7 @@ export default function NewInsurancePage() {
           liability_personal_unlimited: data.liability_personal_unlimited,
           liability_property_amount: data.liability_property_amount,
           passenger_injury_amount: data.passenger_injury_amount,
-          image_url: fileKey, // file_keyをimage_urlとして保存
+          image_attachment: imageAttachment,
         }),
       });
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Settings, Save, FileText, Car, Shield, Bell, Building2, HardDrive, Eye, EyeOff } from "lucide-react";
+import { Settings, Save, FileText, Car, Shield, Bell, Building2 } from "lucide-react";
 
 interface SystemSettings {
   license_expiry_warning_days: number;
@@ -13,16 +13,6 @@ interface SystemSettings {
   company_postal_code: string;
   company_address: string;
   issuing_department: string;
-  // ファイルストレージ設定
-  file_storage_type: "local" | "box";
-  // ローカルストレージ設定
-  local_storage_path: string;
-  // Box設定
-  box_client_id: string;
-  box_client_secret: string;
-  box_enterprise_id: string;
-  box_folder_id: string;
-  box_developer_token: string;
 }
 
 export default function SystemSettingsPage() {
@@ -36,15 +26,7 @@ export default function SystemSettingsPage() {
     company_postal_code: "",
     company_address: "",
     issuing_department: "",
-    file_storage_type: "local",
-    local_storage_path: "./uploads",
-    box_client_id: "",
-    box_client_secret: "",
-    box_enterprise_id: "",
-    box_folder_id: "",
-    box_developer_token: "",
   });
-  const [showSecrets, setShowSecrets] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -407,201 +389,6 @@ export default function SystemSettingsPage() {
           </div>
         </div>
 
-        {/* ファイルストレージ設定 */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <HardDrive className="h-5 w-5 text-indigo-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                ファイルストレージ設定
-              </h2>
-            </div>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setShowSecrets(!showSecrets)}
-                className="flex items-center space-x-1 text-sm text-gray-500 hover:text-gray-700"
-              >
-                {showSecrets ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span>{showSecrets ? "非表示" : "表示"}</span>
-              </button>
-            )}
-          </div>
-
-          <p className="text-sm text-gray-600 mb-6">
-            アップロードされた画像ファイルの保存先を設定します
-          </p>
-
-          {/* ストレージタイプ選択 */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              ストレージタイプ
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {[
-                { value: "local", label: "ローカル", desc: "サーバーローカル保存（推奨）" },
-                { value: "box", label: "Box", desc: "Box.comクラウドストレージ" },
-              ].map((option) => (
-                <label
-                  key={option.value}
-                  className={`flex-1 min-w-[140px] p-4 border rounded-lg cursor-pointer transition-colors ${
-                    settings.file_storage_type === option.value
-                      ? "border-indigo-600 bg-indigo-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  } ${!isAdmin ? "cursor-not-allowed opacity-60" : ""}`}
-                >
-                  <input
-                    type="radio"
-                    name="file_storage_type"
-                    value={option.value}
-                    checked={settings.file_storage_type === option.value}
-                    onChange={(e) =>
-                      handleTextChange("file_storage_type", e.target.value as any)
-                    }
-                    disabled={!isAdmin}
-                    className="sr-only"
-                  />
-                  <div className="font-medium text-gray-900">{option.label}</div>
-                  <div className="text-xs text-gray-500 mt-1">{option.desc}</div>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* ローカルストレージ設定（ローカルが選択された場合のみ表示） */}
-          {settings.file_storage_type === "local" && (
-            <div className="border-t pt-6 space-y-4">
-              <h3 className="font-medium text-gray-900 flex items-center space-x-2">
-                <span className="bg-green-600 text-white text-xs px-2 py-1 rounded">ローカル</span>
-                <span>ストレージ設定</span>
-              </h3>
-
-              {/* 保存先パス */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  保存先パス
-                </label>
-                <input
-                  type="text"
-                  value={settings.local_storage_path}
-                  onChange={(e) => handleTextChange("local_storage_path", e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="./uploads"
-                  className="w-full border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  相対パス（例: ./uploads）または絶対パス（例: C:\data\uploads）を指定できます
-                </p>
-              </div>
-
-              <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-green-800">
-                  ローカルストレージは追加設定不要で最も安定して動作します。
-                  ファイルはサーバーの指定フォルダに直接保存されます。
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Box設定（Boxが選択された場合のみ表示） */}
-          {settings.file_storage_type === "box" && (
-            <div className="border-t pt-6 space-y-4">
-              <h3 className="font-medium text-gray-900 flex items-center space-x-2">
-                <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">Box</span>
-                <span>API設定</span>
-              </h3>
-
-              {/* Client ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Client ID
-                </label>
-                <input
-                  type="text"
-                  value={settings.box_client_id}
-                  onChange={(e) => handleTextChange("box_client_id", e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="1n2b13zl1pidczu9ieg4rp0ep6tkiamv"
-                  className="w-full border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
-                />
-              </div>
-
-              {/* Client Secret */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Client Secret
-                </label>
-                <input
-                  type={showSecrets ? "text" : "password"}
-                  value={settings.box_client_secret}
-                  onChange={(e) => handleTextChange("box_client_secret", e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="••••••••••••••••"
-                  className="w-full border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
-                />
-              </div>
-
-              {/* Enterprise ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Enterprise ID
-                </label>
-                <input
-                  type="text"
-                  value={settings.box_enterprise_id}
-                  onChange={(e) => handleTextChange("box_enterprise_id", e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="315653928"
-                  className="w-full sm:w-64 border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
-                />
-              </div>
-
-              {/* Folder ID */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  保存先フォルダID
-                </label>
-                <input
-                  type="text"
-                  value={settings.box_folder_id}
-                  onChange={(e) => handleTextChange("box_folder_id", e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="0（ルートフォルダ）"
-                  className="w-full sm:w-64 border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  空欄の場合はルートフォルダ（0）を使用します
-                </p>
-              </div>
-
-              {/* Developer Token（開発用） */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Developer Token <span className="text-orange-500">（開発用・オプション）</span>
-                </label>
-                <input
-                  type={showSecrets ? "text" : "password"}
-                  value={settings.box_developer_token}
-                  onChange={(e) => handleTextChange("box_developer_token", e.target.value)}
-                  disabled={!isAdmin}
-                  placeholder="••••••••••••••••"
-                  className="w-full border rounded-lg px-3 py-2 font-mono text-sm disabled:bg-gray-100"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  本番環境ではJWT認証を使用してください。Developer Tokenは1時間で期限切れになります。
-                </p>
-              </div>
-
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  Box Developer Consoleで作成したアプリケーションの認証情報を入力してください。
-                  JWT認証を使用する場合は、アプリの承認が必要です。
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* 設定の説明 */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
           <h3 className="font-medium text-gray-900 mb-3">設定について</h3>
@@ -611,8 +398,6 @@ export default function SystemSettingsPage() {
             <li>
               • 管理者通知は、有効期限切れ後の設定日数経過時にエスカレーションとして送信されます
             </li>
-            <li>• ファイルストレージはアップロードされた画像の保存先を指定します</li>
-            <li>• Box使用時はClient ID、Client Secret、Enterprise IDが必須です</li>
             <li>• すべての設定は管理者権限を持つユーザーのみ変更可能です</li>
             <li>
               • 設定変更後は「設定を保存」ボタンをクリックして保存してください
