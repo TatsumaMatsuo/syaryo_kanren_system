@@ -1,5 +1,24 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
+import { getBaseRecords } from "@/lib/lark-client";
+import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
+
+// メールアドレスから社員番号を取得
+async function getEmployeeIdByEmail(email: string): Promise<string | null> {
+  try {
+    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+      filter: `CurrentValue.[${EMPLOYEE_FIELDS.email}]="${email}"`,
+    });
+    const employee = response.data?.items?.[0];
+    if (employee?.fields?.[EMPLOYEE_FIELDS.employee_id]) {
+      return employee.fields[EMPLOYEE_FIELDS.employee_id] as string;
+    }
+    return null;
+  } catch (error) {
+    console.error("Failed to get employee_id by email:", error);
+    return null;
+  }
+}
 
 const authOptions: NextAuthOptions = {
   providers: [
@@ -86,11 +105,19 @@ const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account }) {
       if (account && user) {
+        // メールアドレスから社員番号を取得
+        let employeeId: string | null = null;
+        if (user.email) {
+          employeeId = await getEmployeeIdByEmail(user.email);
+          console.log(`[Auth] Got employee_id for ${user.email}: ${employeeId}`);
+        }
         return {
           ...token,
           accessToken: account.access_token,
           refreshToken: account.refresh_token,
           userId: user.id,
+          employeeId: employeeId,
+          email: user.email,
         };
       }
       return token;
@@ -101,6 +128,7 @@ const authOptions: NextAuthOptions = {
         user: {
           ...session.user,
           id: token.userId as string,
+          employeeId: token.employeeId as string | null,
         },
         accessToken: token.accessToken as string,
       };

@@ -54,8 +54,8 @@ export default function NewInsurancePage() {
         imageAttachment = uploadResult.attachment;
       }
 
-      // セッションからユーザーID（メールアドレス）を取得
-      const employeeId = session.user.email || "unknown";
+      // セッションから社員番号を取得（なければメールアドレスをフォールバック）
+      const employeeId = session.user.employeeId || session.user.email || "unknown";
 
       // 2. 申請データを送信
       const response = await fetch("/api/applications/insurance", {
