@@ -79,7 +79,8 @@ export async function GET(
 
     console.log(`[Attachment Download API] Download success - size: ${buffer.length}`);
 
-    return new NextResponse(buffer, {
+    // BufferをUint8Arrayに変換（NextResponseの型互換性のため）
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "Content-Type": contentType,
