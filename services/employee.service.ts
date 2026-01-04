@@ -77,6 +77,57 @@ export async function getEmployees(
 }
 
 /**
+ * メールアドレスから社員を取得
+ */
+export async function getEmployeeByEmail(email: string): Promise<Employee | null> {
+  try {
+    // 全社員を取得してメールアドレスで検索（Peopleフィールドのネスト構造のため）
+    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {});
+
+    if (!response.data?.items) {
+      return null;
+    }
+
+    // メールアドレスで検索
+    const normalizedEmail = email.toLowerCase().trim();
+    const item = response.data.items.find((item: any) => {
+      const itemEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]);
+      return itemEmail.toLowerCase().trim() === normalizedEmail;
+    });
+
+    if (!item) {
+      console.log(`Employee not found for email: ${email}`);
+      return null;
+    }
+
+    return {
+      employee_id: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
+      employee_name: extractNameFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]),
+      email: extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]) || String(item.fields[EMPLOYEE_FIELDS.email] || ""),
+      department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
+      role: (item.fields[EMPLOYEE_FIELDS.role] || "applicant") as any,
+      employment_status: (item.fields[EMPLOYEE_FIELDS.employment_status] ||
+        "active") as EmploymentStatus,
+      hire_date: new Date(
+        Number(item.fields[EMPLOYEE_FIELDS.hire_date]) || Date.now()
+      ),
+      resignation_date: item.fields[EMPLOYEE_FIELDS.resignation_date]
+        ? new Date(Number(item.fields[EMPLOYEE_FIELDS.resignation_date]))
+        : undefined,
+      created_at: new Date(
+        Number(item.fields[EMPLOYEE_FIELDS.created_at]) || Date.now()
+      ),
+      updated_at: new Date(
+        Number(item.fields[EMPLOYEE_FIELDS.updated_at]) || Date.now()
+      ),
+    };
+  } catch (error) {
+    console.error("Failed to get employee by email:", error);
+    return null;
+  }
+}
+
+/**
  * 特定の社員を取得
  */
 export async function getEmployee(employeeId: string): Promise<Employee | null> {
