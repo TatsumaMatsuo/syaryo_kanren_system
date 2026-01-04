@@ -120,8 +120,13 @@ export async function generatePermitPdfBuffer(
  * 保存されたPDFファイルを取得
  */
 export function getPermitPdfPath(fileKey: string): string | null {
+  // fileKeyが空の場合はnullを返す
+  if (!fileKey || fileKey.trim() === "") {
+    return null;
+  }
   const filePath = path.join(UPLOAD_DIR, fileKey);
-  if (fs.existsSync(filePath)) {
+  // ファイルが存在し、かつディレクトリでないことを確認
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     return filePath;
   }
   return null;

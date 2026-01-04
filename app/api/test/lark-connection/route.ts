@@ -100,6 +100,8 @@ export async function GET() {
         LARK_APP_ID: process.env.LARK_APP_ID?.substring(0, 10) + '...',
         LARK_BASE_TOKEN: process.env.LARK_BASE_TOKEN?.substring(0, 10) + '...',
         NODE_ENV: process.env.NODE_ENV,
+        // デバッグ用：テーブルID表示
+        LARK_TABLE_INSURANCE_POLICIES: process.env.LARK_TABLE_INSURANCE_POLICIES,
       },
       tables: tableResults,
       timestamp: new Date().toISOString(),

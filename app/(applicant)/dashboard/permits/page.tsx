@@ -119,9 +119,6 @@ export default function PermitsPage() {
     fetchPermits();
   }, [session]);
 
-  const handleDownload = async (permitId: string) => {
-    window.open(`/api/permits/download/${permitId}`, "_blank");
-  };
 
   // ローディング中
   if (status === "loading" || loading) {
@@ -230,13 +227,15 @@ export default function PermitsPage() {
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleDownload(permit.id)}
+                      <a
+                        href={`/api/permits/download/${permit.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       >
                         <Download className="w-4 h-4" />
-                        許可証をダウンロード
-                      </button>
+                        許可証を表示
+                      </a>
                     </div>
                   ))}
                 </div>

@@ -100,12 +100,24 @@ export async function getBaseRecords(tableId: string, params?: {
  */
 export async function createBaseRecord(tableId: string, fields: Record<string, any>) {
   try {
-    console.log(`[lark-client] createBaseRecord - tableId: ${tableId}, fields:`, JSON.stringify(fields, null, 2));
+    // テーブルIDの改行文字を除去
+    const cleanTableId = tableId.trim().replace(/\\n/g, '').replace(/\n/g, '');
+    const cleanAppToken = getLarkBaseToken().trim().replace(/\\n/g, '').replace(/\n/g, '');
+
+    console.log(`[lark-client] createBaseRecord - tableId: "${cleanTableId}", appToken: "${cleanAppToken.substring(0, 10)}...", fields:`, JSON.stringify(fields, null, 2));
+
+    if (!cleanTableId) {
+      throw new Error("Table ID is empty or not configured");
+    }
+
+    if (!cleanAppToken) {
+      throw new Error("Lark Base Token is empty or not configured");
+    }
 
     const response = await larkClient.bitable.appTableRecord.create({
       path: {
-        app_token: getLarkBaseToken(),
-        table_id: tableId,
+        app_token: cleanAppToken,
+        table_id: cleanTableId,
       },
       data: {
         fields,
@@ -117,6 +129,7 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
       throw new Error(`Lark API error: ${response.msg || 'Unknown error'} (code: ${response.code})`);
     }
 
+    console.log(`[lark-client] createBaseRecord SUCCESS - record_id: ${response.data?.record?.record_id}`);
     return response;
   } catch (error) {
     console.error("Error creating Lark Base record:", error);

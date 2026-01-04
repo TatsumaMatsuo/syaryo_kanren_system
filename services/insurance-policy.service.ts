@@ -33,11 +33,15 @@ export async function getInsurancePolicies(employeeId?: string): Promise<Insuran
       ? `CurrentValue.[employee_id]="${employeeId}"`
       : undefined;
 
-    const response = await getBaseRecords(LARK_TABLES.INSURANCE_POLICIES, {
+    const tableId = LARK_TABLES.INSURANCE_POLICIES;
+    console.log(`[insurance-policy] getInsurancePolicies - tableId: "${tableId}", filter: ${filter}`);
+
+    const response = await getBaseRecords(tableId, {
       filter,
     });
 
-    // デバッグログ: フィールド名を表示
+    // デバッグログ: API応答を詳細に表示
+    console.log(`[insurance-policy] API response - code: ${response.code}, msg: ${response.msg}`);
     console.log(`[insurance-policy] Raw items count: ${response.data?.items?.length || 0}`);
     if (response.data?.items?.[0]) {
       console.log(`[insurance-policy] Available fields:`, Object.keys(response.data.items[0].fields));

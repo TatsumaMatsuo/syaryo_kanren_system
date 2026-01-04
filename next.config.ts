@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Fix workspace root detection to avoid parent directory interference
+  outputFileTracingRoot: path.join(__dirname),
+  eslint: {
+    // Ignore ESLint during builds (we run it separately)
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default withSentryConfig(nextConfig, {
