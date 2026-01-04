@@ -165,8 +165,18 @@ export default function Dashboard() {
       );
     }
 
-    // 却下があれば赤
+    // 却下があれば（承認と混在している可能性あり）
     if (summary.rejected > 0) {
+      // 承認もある場合は両方の情報を表示
+      if (summary.approved > 0) {
+        return (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+            <CheckCircle className="w-4 h-4 mr-1" />
+            {summary.total}件中{summary.approved}件承認
+          </span>
+        );
+      }
+      // 却下のみ
       return (
         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
           <XCircle className="w-4 h-4 mr-1" />
