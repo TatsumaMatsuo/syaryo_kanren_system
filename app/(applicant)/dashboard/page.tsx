@@ -202,7 +202,7 @@ export default function Dashboard() {
       {/* ヘッダー */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                 マイカー通勤申請ダッシュボード
@@ -214,17 +214,18 @@ export default function Dashboard() {
             <div className="flex gap-2">
               <Link
                 href="/dashboard/permits"
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                className="flex items-center justify-center px-3 py-2 text-sm sm:px-4 sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                <Award className="w-4 h-4 mr-2" />
+                <Award className="w-4 h-4 mr-1 sm:mr-2" />
                 許可証
               </Link>
               <Link
                 href="/dashboard/documents"
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center px-3 py-2 text-sm sm:px-4 sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                <Search className="w-4 h-4 mr-2" />
-                承認済書類照会
+                <Search className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="sm:hidden">書類照会</span>
+                <span className="hidden sm:inline">承認済書類照会</span>
               </Link>
             </div>
           </div>
