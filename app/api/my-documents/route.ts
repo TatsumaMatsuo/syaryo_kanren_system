@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth-utils";
 import { getDriversLicenses } from "@/services/drivers-license.service";
 import { getVehicleRegistrations } from "@/services/vehicle-registration.service";
 import { getInsurancePolicies } from "@/services/insurance-policy.service";
+import { getEmployeeByEmail } from "@/services/employee.service";
 
 /**
  * GET /api/my-documents
@@ -25,8 +26,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const employeeIdParam = searchParams.get("employee_id");
 
-    // 代理申請の場合はパラメータのIDを使用、それ以外は認証ユーザーのID
-    const userId = employeeIdParam || authCheck.userId;
+    // 代理申請の場合はパラメータのIDを使用、それ以外はメールから社員コードを取得
+    let userId = employeeIdParam;
+    if (!userId && authCheck.userId) {
+      // メールアドレスから社員コードを取得
+      const employee = await getEmployeeByEmail(authCheck.userId);
+      userId = employee?.employee_id || null;
+    }
 
     console.log(`[my-documents] userId: ${userId} (param: ${employeeIdParam}, auth: ${authCheck.userId})`);
 

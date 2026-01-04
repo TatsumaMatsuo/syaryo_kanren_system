@@ -174,6 +174,7 @@ export async function getApplicationOverview(
             department = item.fields.department || "";
           }
 
+          // 社員コードで書類を検索
           const license = licensesMap.get(empId) || null;
           const vehicles = vehiclesMap.get(empId) || [];
           const insurances = insurancesMap.get(empId) || [];

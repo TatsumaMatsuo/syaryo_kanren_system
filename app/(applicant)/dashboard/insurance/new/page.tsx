@@ -31,6 +31,21 @@ export default function NewInsurancePage() {
     setError(null);
 
     try {
+      // 0. メールアドレスから社員コードを取得
+      const email = session.user.email;
+      if (!email) {
+        throw new Error("メールアドレスが取得できません");
+      }
+
+      const employeeResponse = await fetch(`/api/employees/by-email?email=${encodeURIComponent(email)}`);
+      const employeeResult = await employeeResponse.json();
+
+      if (!employeeResult.success || !employeeResult.data) {
+        throw new Error("社員情報が見つかりません。管理者にお問い合わせください。");
+      }
+
+      const employeeId = employeeResult.data.employee_id;
+
       // 1. ファイルをLark Base添付ファイルとしてアップロード
       let imageAttachment = null;
       if (data.image_file) {
@@ -54,10 +69,7 @@ export default function NewInsurancePage() {
         imageAttachment = uploadResult.attachment;
       }
 
-      // セッションから社員番号を取得（なければメールアドレスをフォールバック）
-      const employeeId = session.user.employeeId || session.user.email || "unknown";
-
-      // 2. 申請データを送信
+      // 2. 申請データを送信（社員コードを使用）
       const response = await fetch("/api/applications/insurance", {
         method: "POST",
         headers: {
