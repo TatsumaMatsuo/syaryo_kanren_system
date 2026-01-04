@@ -103,7 +103,7 @@ const authOptions: NextAuthOptions = {
     },
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account }): Promise<JWT> {
       if (account && user) {
         // メールアドレスから社員番号を取得
         let employeeId: string | null = null;
@@ -111,14 +111,12 @@ const authOptions: NextAuthOptions = {
           employeeId = await getEmployeeIdByEmail(user.email);
           console.log(`[Auth] Got employee_id for ${user.email}: ${employeeId}`);
         }
-        return {
-          ...token,
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          userId: user.id,
-          employeeId: employeeId,
-          email: user.email,
-        };
+        // tokenを直接変更して返す（型の整合性を保つため）
+        token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
+        token.userId = user.id;
+        token.employeeId = employeeId;
+        token.email = user.email ?? undefined;
       }
       return token;
     },

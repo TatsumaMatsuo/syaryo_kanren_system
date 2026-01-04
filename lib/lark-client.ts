@@ -114,6 +114,7 @@ export async function createBaseRecord(tableId: string, fields: Record<string, a
 
     if (response.code !== 0) {
       console.error(`[lark-client] createBaseRecord FAILED - code: ${response.code}, msg: ${response.msg}`);
+      throw new Error(`Lark API error: ${response.msg || 'Unknown error'} (code: ${response.code})`);
     }
 
     return response;
@@ -154,6 +155,11 @@ export async function updateBaseRecord(
       msg: response.msg,
       success: response.code === 0,
     });
+
+    if (response.code !== 0) {
+      console.error(`[lark-client] updateBaseRecord FAILED - code: ${response.code}, msg: ${response.msg}`);
+      throw new Error(`Lark API error: ${response.msg || 'Unknown error'} (code: ${response.code})`);
+    }
 
     return response;
   } catch (error) {
