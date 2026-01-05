@@ -5,6 +5,11 @@
  */
 
 /**
+ * ユーザ検索専用テーブルID
+ */
+export const USER_SEARCH_TABLE_ID = "tblcD612FRuUmoJZ";
+
+/**
  * テーブルIDを取得（遅延初期化対応）
  */
 export function getLarkTables() {

@@ -1,5 +1,5 @@
 import { larkClient, getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID } from "@/lib/lark-tables";
 import { LarkUser } from "@/types";
 
 /**
@@ -16,9 +16,9 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
       return [];
     }
 
-    // 従業員マスタテーブルから検索
-    console.log('DEBUG searchLarkUsers - searching from employee table');
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+    // ユーザ検索専用テーブルから検索
+    console.log('DEBUG searchLarkUsers - searching from user search table:', USER_SEARCH_TABLE_ID);
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       pageSize: 100,
     });
 
@@ -189,7 +189,7 @@ export async function getCurrentLarkUser(
  */
 export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<string | null> {
   try {
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter: `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${employeeId}"`,
     });
 
