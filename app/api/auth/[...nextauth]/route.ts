@@ -1,17 +1,13 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
-import { getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
+import { getEmployeeByEmail } from "@/services/employee.service";
 
 // メールアドレスから社員番号を取得
 async function getEmployeeIdByEmail(email: string): Promise<string | null> {
   try {
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
-      filter: `CurrentValue.[${EMPLOYEE_FIELDS.email}]="${email}"`,
-    });
-    const employee = response.data?.items?.[0];
-    if (employee?.fields?.[EMPLOYEE_FIELDS.employee_id]) {
-      return employee.fields[EMPLOYEE_FIELDS.employee_id] as string;
+    const employee = await getEmployeeByEmail(email);
+    if (employee) {
+      return employee.employee_id;
     }
     return null;
   } catch (error) {

@@ -1,6 +1,6 @@
 import { ApplicationOverview, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
 import { getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/lark-tables";
 
 /**
  * 統合ビュー: 社員の申請情報を3テーブル結合で取得
@@ -28,10 +28,11 @@ export async function getApplicationOverview(
             ? `CurrentValue.[employee_id]="${employeeId}"`
             : undefined,
         }),
-        getBaseRecords(LARK_TABLES.EMPLOYEES, {
+        getBaseRecords(USER_SEARCH_TABLE_ID, {
           filter: employeeId
-            ? `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${employeeId}"`
+            ? `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${employeeId}"`
             : undefined,
+          pageSize: 500,
         }),
       ]);
 
@@ -139,39 +140,38 @@ export async function getApplicationOverview(
     const overviewsRaw =
       employeesResponse.data?.items
         ?.map((item: any): ApplicationOverview | null => {
-          // 社員マスタのフィールド名（日本語）からemployee_idを取得
-          const empId = item.fields[EMPLOYEE_FIELDS.employee_id] || item.fields.employee_id;
+          // 社員マスタのフィールド名からemployee_idを取得
+          const empId = item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || item.fields.employee_id;
 
-          // 社員名フィールド（Peopleフィールドの場合はオブジェクト/配列から名前を抽出）
-          const nameField = item.fields[EMPLOYEE_FIELDS.employee_name] || item.fields["社員名"] || item.fields.name;
+          // 社員名フィールド（直接フィールドまたはPeopleフィールドから取得）
+          const directName = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
+          const peopleField = item.fields[EMPLOYEE_MASTER_FIELDS.people_field];
           let empName = "不明";
-          if (typeof nameField === "string") {
-            empName = nameField;
-          } else if (Array.isArray(nameField) && nameField[0]?.name) {
-            empName = nameField[0].name;
-          } else if (nameField && typeof nameField === "object" && nameField.name) {
-            empName = nameField.name;
+          if (directName && typeof directName === "string") {
+            empName = directName;
+          } else if (Array.isArray(peopleField) && peopleField[0]?.name) {
+            empName = peopleField[0].name;
+          } else if (peopleField && typeof peopleField === "object" && peopleField.name) {
+            empName = peopleField.name;
           }
 
-          // メンバーフィールドからメール・部署を取得
-          const memberField = item.fields[EMPLOYEE_FIELDS.employee_name];
-          let email = item.fields[EMPLOYEE_FIELDS.email] || item.fields.email || "";
-          if (!email && Array.isArray(memberField) && memberField[0]?.email) {
-            email = memberField[0].email;
-          } else if (!email && memberField && typeof memberField === "object" && memberField.email) {
-            email = memberField.email;
+          // メールを取得（Peopleフィールドまたは直接フィールドから）
+          let email = "";
+          if (Array.isArray(peopleField) && peopleField[0]?.email) {
+            email = peopleField[0].email;
+          } else if (peopleField && typeof peopleField === "object" && peopleField.email) {
+            email = peopleField.email;
+          } else {
+            email = item.fields[EMPLOYEE_MASTER_FIELDS.email] || "";
           }
 
+          // 部署を取得
           let department = "";
-          const deptField = item.fields[EMPLOYEE_FIELDS.department];
+          const deptField = item.fields[EMPLOYEE_MASTER_FIELDS.department];
           if (Array.isArray(deptField)) {
             department = deptField.join(", ");
           } else if (typeof deptField === "string") {
             department = deptField;
-          } else if (Array.isArray(memberField) && memberField[0]?.department_ids) {
-            department = memberField[0].department_ids.join(", ");
-          } else {
-            department = item.fields.department || "";
           }
 
           // 社員コードで書類を検索
@@ -191,20 +191,21 @@ export async function getApplicationOverview(
             return null;
           }
 
+          // 退職フラグ
+          const isResigned = item.fields[EMPLOYEE_MASTER_FIELDS.resigned_flag] === true;
+
           return {
             employee: {
               employee_id: empId,
               employee_name: empName,
               email: email,
               department: department,
-              role: item.fields.role || "applicant",
-              employment_status: item.fields["退職者フラグ"] ? "resigned" : "active",
-              hire_date: item.fields.hire_date ? new Date(item.fields.hire_date) : undefined,
-              resignation_date: item.fields.resignation_date
-                ? new Date(item.fields.resignation_date)
-                : undefined,
-              created_at: item.fields.created_at ? new Date(item.fields.created_at) : undefined,
-              updated_at: item.fields.updated_at ? new Date(item.fields.updated_at) : undefined,
+              role: "applicant",
+              employment_status: isResigned ? "resigned" : "active",
+              hire_date: undefined,
+              resignation_date: undefined,
+              created_at: undefined,
+              updated_at: undefined,
             },
             license,
             vehicles,

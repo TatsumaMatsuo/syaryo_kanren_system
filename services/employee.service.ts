@@ -3,7 +3,7 @@ import {
   createBaseRecord,
   updateBaseRecord,
 } from "@/lib/lark-client";
-import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/lark-tables";
 import { Employee, EmploymentStatus } from "@/types";
 
 /**
@@ -29,45 +29,57 @@ function extractEmailFromPeopleField(field: any): string {
 }
 
 /**
- * 全ての社員を取得
+ * 全ての社員を取得（社員マスタテーブルから）
  */
 export async function getEmployees(
   includeResigned: boolean = false
 ): Promise<Employee[]> {
   try {
+    // 退職者フラグでフィルタリング
     const filter = includeResigned
       ? undefined
-      : `CurrentValue.[${EMPLOYEE_FIELDS.employment_status}] = "active"`;
+      : `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.resigned_flag}] != true`;
 
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,
+      pageSize: 500,
     });
 
     if (!response.data?.items) {
       return [];
     }
 
-    const employees: Employee[] = response.data.items.map((item: any) => ({
-      employee_id: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
-      employee_name: extractNameFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]),
-      email: extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]) || String(item.fields[EMPLOYEE_FIELDS.email] || ""),
-      department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
-      role: (item.fields[EMPLOYEE_FIELDS.role] || "applicant") as any,
-      employment_status: (item.fields[EMPLOYEE_FIELDS.employment_status] ||
-        "active") as EmploymentStatus,
-      hire_date: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.hire_date]) || Date.now()
-      ),
-      resignation_date: item.fields[EMPLOYEE_FIELDS.resignation_date]
-        ? new Date(Number(item.fields[EMPLOYEE_FIELDS.resignation_date]))
-        : undefined,
-      created_at: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.created_at]) || Date.now()
-      ),
-      updated_at: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.updated_at]) || Date.now()
-      ),
-    }));
+    const employees: Employee[] = response.data.items.map((item: any) => {
+      // 社員名（直接フィールドまたはPeopleフィールドから取得）
+      const directName = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
+      const peopleName = extractNameFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+      const employeeName = directName || peopleName || "";
+
+      // メール（Peopleフィールドまたは直接フィールドから取得）
+      const peopleEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+      const directEmail = item.fields[EMPLOYEE_MASTER_FIELDS.email];
+      const email = peopleEmail || directEmail || "";
+
+      // 部署
+      const department = item.fields[EMPLOYEE_MASTER_FIELDS.department];
+      const departmentStr = Array.isArray(department) ? department[0] || "" : String(department || "");
+
+      // 退職フラグ
+      const isResigned = item.fields[EMPLOYEE_MASTER_FIELDS.resigned_flag] === true;
+
+      return {
+        employee_id: String(item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || ""),
+        employee_name: employeeName,
+        email: email,
+        department: departmentStr,
+        role: "applicant" as any,
+        employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,
+        hire_date: new Date(),
+        resignation_date: undefined,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+    });
 
     return employees;
   } catch (error) {
@@ -77,12 +89,14 @@ export async function getEmployees(
 }
 
 /**
- * メールアドレスから社員を取得
+ * メールアドレスから社員を取得（社員マスタテーブルから）
  */
 export async function getEmployeeByEmail(email: string): Promise<Employee | null> {
   try {
-    // 全社員を取得してメールアドレスで検索（Peopleフィールドのネスト構造のため）
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {});
+    // 全社員を取得してメールアドレスで検索
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
+      pageSize: 500,
+    });
 
     if (!response.data?.items) {
       return null;
@@ -91,7 +105,9 @@ export async function getEmployeeByEmail(email: string): Promise<Employee | null
     // メールアドレスで検索
     const normalizedEmail = email.toLowerCase().trim();
     const item = response.data.items.find((item: any) => {
-      const itemEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]);
+      const peopleEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+      const directEmail = item.fields[EMPLOYEE_MASTER_FIELDS.email] || "";
+      const itemEmail = peopleEmail || directEmail;
       return itemEmail.toLowerCase().trim() === normalizedEmail;
     });
 
@@ -100,26 +116,34 @@ export async function getEmployeeByEmail(email: string): Promise<Employee | null
       return null;
     }
 
+    // 社員名（直接フィールドまたはPeopleフィールドから取得）
+    const directName = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
+    const peopleName = extractNameFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+    const employeeName = directName || peopleName || "";
+
+    // メール
+    const peopleEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+    const directEmail = item.fields[EMPLOYEE_MASTER_FIELDS.email];
+    const employeeEmail = peopleEmail || directEmail || "";
+
+    // 部署
+    const department = item.fields[EMPLOYEE_MASTER_FIELDS.department];
+    const departmentStr = Array.isArray(department) ? department[0] || "" : String(department || "");
+
+    // 退職フラグ
+    const isResigned = item.fields[EMPLOYEE_MASTER_FIELDS.resigned_flag] === true;
+
     return {
-      employee_id: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
-      employee_name: extractNameFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]),
-      email: extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]) || String(item.fields[EMPLOYEE_FIELDS.email] || ""),
-      department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
-      role: (item.fields[EMPLOYEE_FIELDS.role] || "applicant") as any,
-      employment_status: (item.fields[EMPLOYEE_FIELDS.employment_status] ||
-        "active") as EmploymentStatus,
-      hire_date: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.hire_date]) || Date.now()
-      ),
-      resignation_date: item.fields[EMPLOYEE_FIELDS.resignation_date]
-        ? new Date(Number(item.fields[EMPLOYEE_FIELDS.resignation_date]))
-        : undefined,
-      created_at: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.created_at]) || Date.now()
-      ),
-      updated_at: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.updated_at]) || Date.now()
-      ),
+      employee_id: String(item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || ""),
+      employee_name: employeeName,
+      email: employeeEmail,
+      department: departmentStr,
+      role: "applicant" as any,
+      employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,
+      hire_date: new Date(),
+      resignation_date: undefined,
+      created_at: new Date(),
+      updated_at: new Date(),
     };
   } catch (error) {
     console.error("Failed to get employee by email:", error);
@@ -128,13 +152,13 @@ export async function getEmployeeByEmail(email: string): Promise<Employee | null
 }
 
 /**
- * 特定の社員を取得
+ * 特定の社員を取得（社員マスタテーブルから）
  */
 export async function getEmployee(employeeId: string): Promise<Employee | null> {
   try {
-    const filter = `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}] = "${employeeId}"`;
+    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${employeeId}"`;
 
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,
     });
 
@@ -143,26 +167,35 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
     }
 
     const item = response.data.items[0];
+
+    // 社員名（直接フィールドまたはPeopleフィールドから取得）
+    const directName = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
+    const peopleName = extractNameFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+    const employeeName = directName || peopleName || "";
+
+    // メール
+    const peopleEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
+    const directEmail = item.fields[EMPLOYEE_MASTER_FIELDS.email];
+    const email = peopleEmail || directEmail || "";
+
+    // 部署
+    const department = item.fields[EMPLOYEE_MASTER_FIELDS.department];
+    const departmentStr = Array.isArray(department) ? department[0] || "" : String(department || "");
+
+    // 退職フラグ
+    const isResigned = item.fields[EMPLOYEE_MASTER_FIELDS.resigned_flag] === true;
+
     return {
-      employee_id: String(item.fields[EMPLOYEE_FIELDS.employee_id] || ""),
-      employee_name: extractNameFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]),
-      email: extractEmailFromPeopleField(item.fields[EMPLOYEE_FIELDS.employee_name]) || String(item.fields[EMPLOYEE_FIELDS.email] || ""),
-      department: String(item.fields[EMPLOYEE_FIELDS.department] || ""),
-      role: (item.fields[EMPLOYEE_FIELDS.role] || "applicant") as any,
-      employment_status: (item.fields[EMPLOYEE_FIELDS.employment_status] ||
-        "active") as EmploymentStatus,
-      hire_date: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.hire_date]) || Date.now()
-      ),
-      resignation_date: item.fields[EMPLOYEE_FIELDS.resignation_date]
-        ? new Date(Number(item.fields[EMPLOYEE_FIELDS.resignation_date]))
-        : undefined,
-      created_at: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.created_at]) || Date.now()
-      ),
-      updated_at: new Date(
-        Number(item.fields[EMPLOYEE_FIELDS.updated_at]) || Date.now()
-      ),
+      employee_id: String(item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || ""),
+      employee_name: employeeName,
+      email: email,
+      department: departmentStr,
+      role: "applicant" as any,
+      employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,
+      hire_date: new Date(),
+      resignation_date: undefined,
+      created_at: new Date(),
+      updated_at: new Date(),
     };
   } catch (error) {
     console.error("Failed to get employee:", error);
@@ -171,16 +204,16 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
 }
 
 /**
- * 社員を退職させる（論理削除）
+ * 社員を退職させる（退職者フラグを設定）
  */
 export async function retireEmployee(
   employeeId: string,
   resignationDate?: Date
 ): Promise<void> {
   try {
-    const filter = `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}] = "${employeeId}"`;
+    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${employeeId}"`;
 
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,
     });
 
@@ -191,10 +224,8 @@ export async function retireEmployee(
     const recordId = response.data.items[0].record_id || "";
     const actualResignationDate = resignationDate || new Date();
 
-    await updateBaseRecord(LARK_TABLES.EMPLOYEES, recordId, {
-      [EMPLOYEE_FIELDS.employment_status]: "resigned",
-      [EMPLOYEE_FIELDS.resignation_date]: actualResignationDate.getTime(),
-      [EMPLOYEE_FIELDS.updated_at]: Date.now(),
+    await updateBaseRecord(USER_SEARCH_TABLE_ID, recordId, {
+      [EMPLOYEE_MASTER_FIELDS.resigned_flag]: true,
     });
 
     console.log(`Employee ${employeeId} retired on ${actualResignationDate}`);
@@ -312,13 +343,13 @@ export async function retireEmployeeWithDocuments(
 }
 
 /**
- * 社員を復職させる
+ * 社員を復職させる（退職者フラグを解除）
  */
 export async function reactivateEmployee(employeeId: string): Promise<void> {
   try {
-    const filter = `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}] = "${employeeId}"`;
+    const filter = `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}] = "${employeeId}"`;
 
-    const response = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
+    const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
       filter,
     });
 
@@ -328,10 +359,8 @@ export async function reactivateEmployee(employeeId: string): Promise<void> {
 
     const recordId = response.data.items[0].record_id || "";
 
-    await updateBaseRecord(LARK_TABLES.EMPLOYEES, recordId, {
-      [EMPLOYEE_FIELDS.employment_status]: "active",
-      [EMPLOYEE_FIELDS.resignation_date]: null,
-      [EMPLOYEE_FIELDS.updated_at]: Date.now(),
+    await updateBaseRecord(USER_SEARCH_TABLE_ID, recordId, {
+      [EMPLOYEE_MASTER_FIELDS.resigned_flag]: false,
     });
 
     console.log(`Employee ${employeeId} reactivated`);

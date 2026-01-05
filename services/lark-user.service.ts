@@ -1,5 +1,5 @@
 import { larkClient, getBaseRecords } from "@/lib/lark-client";
-import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID } from "@/lib/lark-tables";
+import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/lark-tables";
 import { LarkUser } from "@/types";
 
 /**
@@ -16,10 +16,10 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
       return [];
     }
 
-    // ユーザ検索専用テーブルから検索
+    // ユーザ検索専用テーブルから検索（全社員を取得するためpageSizeを500に設定）
     console.log('DEBUG searchLarkUsers - searching from user search table:', USER_SEARCH_TABLE_ID);
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
-      pageSize: 100,
+      pageSize: 500,
     });
 
     console.log('DEBUG searchLarkUsers - Employee records count:', response.data?.items?.length || 0);
@@ -37,8 +37,8 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
     // クエリでフィルタリング
     const queryLower = query.toLowerCase();
     const filteredUsers = response.data.items.filter((item: any) => {
-      // フィールド名で取得（社員名はPeopleフィールドなので配列の場合がある）
-      const nameField = item.fields[EMPLOYEE_FIELDS.employee_name];
+      // フィールド名で取得
+      const nameField = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
       let name = "";
       if (typeof nameField === "string") {
         name = nameField.toLowerCase();
@@ -48,22 +48,16 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
         name = (nameField.name || "").toLowerCase();
       }
 
-      // メールアドレスの取得（People フィールドから抽出）
+      // メールアドレスの取得
       let email = "";
-      // まずPeopleフィールドの配列からメールを取得
-      if (Array.isArray(nameField) && nameField[0]?.email) {
-        email = (nameField[0].email || "").toLowerCase();
-      } else {
-        // 直接のメールフィールドをチェック
-        const emailField = item.fields[EMPLOYEE_FIELDS.email];
-        if (typeof emailField === "string") {
-          email = emailField.toLowerCase();
-        } else if (Array.isArray(emailField) && emailField[0]) {
-          email = String(emailField[0]).toLowerCase();
-        }
+      const emailField = item.fields[EMPLOYEE_MASTER_FIELDS.email];
+      if (typeof emailField === "string") {
+        email = emailField.toLowerCase();
+      } else if (Array.isArray(emailField) && emailField[0]) {
+        email = String(emailField[0]).toLowerCase();
       }
 
-      const employeeId = String(item.fields[EMPLOYEE_FIELDS.employee_id] || "").toLowerCase();
+      const employeeId = String(item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || "").toLowerCase();
 
       const matches = (
         name.includes(queryLower) ||
@@ -76,10 +70,10 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
 
     console.log('DEBUG searchLarkUsers - Filtered count:', filteredUsers.length);
 
-    // LarkUser型に変換（Peopleフィールドから文字列を抽出）
+    // LarkUser型に変換
     const users: LarkUser[] = filteredUsers.map((item: any) => {
-      // 社員名の抽出（Peopleフィールド対応）
-      const nameField = item.fields[EMPLOYEE_FIELDS.employee_name];
+      // 社員名の抽出
+      const nameField = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
       let extractedName = "";
       if (typeof nameField === "string") {
         extractedName = nameField;
@@ -89,31 +83,25 @@ export async function searchLarkUsers(query: string): Promise<LarkUser[]> {
         extractedName = nameField.name || "";
       }
 
-      // メールの抽出（Peopleフィールドまたは直接フィールド）
+      // メールの抽出
       let extractedEmail = "";
-      // まずPeopleフィールドの配列からメールを取得
-      if (Array.isArray(nameField) && nameField[0]?.email) {
-        extractedEmail = nameField[0].email || "";
-      } else {
-        // 直接のメールフィールドをチェック
-        const emailField = item.fields[EMPLOYEE_FIELDS.email];
-        if (typeof emailField === "string") {
-          extractedEmail = emailField;
-        } else if (Array.isArray(emailField) && emailField[0]) {
-          extractedEmail = String(emailField[0]);
-        }
+      const emailField = item.fields[EMPLOYEE_MASTER_FIELDS.email];
+      if (typeof emailField === "string") {
+        extractedEmail = emailField;
+      } else if (Array.isArray(emailField) && emailField[0]) {
+        extractedEmail = String(emailField[0]);
       }
 
       return {
-        open_id: item.fields[EMPLOYEE_FIELDS.employee_id] || item.record_id,
+        open_id: item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || item.record_id,
         union_id: undefined,
-        user_id: item.fields[EMPLOYEE_FIELDS.employee_id],
+        user_id: item.fields[EMPLOYEE_MASTER_FIELDS.employee_id],
         name: extractedName,
         en_name: undefined,
         email: extractedEmail,
         mobile: undefined,
         avatar: undefined,
-        department_ids: item.fields[EMPLOYEE_FIELDS.department] ? [item.fields[EMPLOYEE_FIELDS.department]] : undefined,
+        department_ids: undefined,
       };
     });
 
@@ -190,7 +178,7 @@ export async function getCurrentLarkUser(
 export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<string | null> {
   try {
     const response = await getBaseRecords(USER_SEARCH_TABLE_ID, {
-      filter: `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${employeeId}"`,
+      filter: `CurrentValue.[${EMPLOYEE_MASTER_FIELDS.employee_id}]="${employeeId}"`,
     });
 
     const employee = response.data?.items?.[0];
@@ -200,7 +188,7 @@ export async function getLarkOpenIdByEmployeeId(employeeId: string): Promise<str
     }
 
     // Peopleフィールドからopen_idを取得
-    const nameField = employee.fields[EMPLOYEE_FIELDS.employee_name] as unknown;
+    const nameField = employee.fields[EMPLOYEE_MASTER_FIELDS.employee_name] as unknown;
 
     if (Array.isArray(nameField) && nameField.length > 0) {
       const firstItem = nameField[0] as Record<string, unknown>;

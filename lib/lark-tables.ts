@@ -5,9 +5,9 @@
  */
 
 /**
- * ユーザ検索専用テーブルID
+ * ユーザ検索専用テーブルID（社員マスタ）
  */
-export const USER_SEARCH_TABLE_ID = "tblcD612FRuUmoJZ";
+export const USER_SEARCH_TABLE_ID = "tblFj7MnxF3svRcu";
 
 /**
  * テーブルIDを取得（遅延初期化対応）
@@ -114,6 +114,18 @@ export const EMPLOYEE_FIELDS = {
   resignation_date: "resignation_date",
   created_at: "created_at",
   updated_at: "updated_at",
+} as const;
+
+/**
+ * 社員マスタテーブル（USER_SEARCH_TABLE_ID）のフィールド定義
+ */
+export const EMPLOYEE_MASTER_FIELDS = {
+  employee_id: "社員コード",
+  employee_name: "社員名",
+  people_field: "社員名 (メンバー )",
+  email: "社員名 (メンバー ).仕事用メールアドレス",
+  department: "社員名 (メンバー ).部署",
+  resigned_flag: "退職者フラグ",
 } as const;
 
 export const USER_PERMISSION_FIELDS = {

@@ -140,12 +140,9 @@ async function checkAndGeneratePermit(
  */
 async function getEmployeeName(employeeId: string): Promise<string> {
   try {
-    const employeesResponse = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
-      filter: `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${employeeId}"`,
-    });
-    const employee = employeesResponse.data?.items?.[0];
+    const employee = await getEmployee(employeeId);
     if (employee) {
-      return String(employee.fields[EMPLOYEE_FIELDS.employee_name] || "不明");
+      return employee.employee_name || "不明";
     }
   } catch (error) {
     console.error("Failed to get employee name:", error);

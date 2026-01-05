@@ -15,6 +15,7 @@ import { requireAdmin, getCurrentUser } from "@/lib/auth-utils";
 import { getBaseRecords } from "@/lib/lark-client";
 import { LARK_TABLES, EMPLOYEE_FIELDS } from "@/lib/lark-tables";
 import { recordApprovalHistory } from "@/services/approval-history.service";
+import { getEmployee } from "@/services/employee.service";
 import { sendRejectionNotification } from "@/services/lark-notification.service";
 import { getLarkOpenIdByEmployeeId } from "@/services/lark-user.service";
 
@@ -86,12 +87,9 @@ export async function POST(
       let employeeName = "不明";
       if (applicationRecord.employee_id) {
         try {
-          const employeesResponse = await getBaseRecords(LARK_TABLES.EMPLOYEES, {
-            filter: `CurrentValue.[${EMPLOYEE_FIELDS.employee_id}]="${applicationRecord.employee_id}"`,
-          });
-          const employee = employeesResponse.data?.items?.[0];
+          const employee = await getEmployee(applicationRecord.employee_id);
           if (employee) {
-            employeeName = String(employee.fields[EMPLOYEE_FIELDS.employee_name] || "不明");
+            employeeName = employee.employee_name || "不明";
           }
         } catch (error) {
           console.error("Failed to get employee name:", error);
