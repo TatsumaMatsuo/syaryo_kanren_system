@@ -15,18 +15,36 @@ import {
   Clock,
   XCircle,
   ArrowLeft,
-  Eye,
   AlertTriangle,
   Plus,
 } from "lucide-react";
-import { SimpleFilePreview } from "@/components/ui/file-viewer";
+import { LarkAttachment } from "@/types";
+
+// image_attachmentからファイルURLを取得（管理画面と同じ方式）
+function getAttachmentUrl(attachment: LarkAttachment | LarkAttachment[] | undefined | null): string | null {
+  if (!attachment) return null;
+  // 配列の場合は最初の要素を使用
+  const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  // API経由でダウンロード（Lark URLは認証が必要なため直接使用不可）
+  if (att?.file_token) {
+    // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
+    const baseUrl = `/api/attachments/${att.file_token}`;
+    // url（直接ダウンロードURL）を優先的に使用
+    const downloadUrl = att.url;
+    if (downloadUrl) {
+      return `${baseUrl}?url=${encodeURIComponent(downloadUrl)}`;
+    }
+    return baseUrl;
+  }
+  return null;
+}
 
 interface DocumentData {
   id: string;
   employee_id: string;
   approval_status: string;
   rejection_reason?: string;
-  image_url?: string;
+  image_attachment?: LarkAttachment | LarkAttachment[];
   // License specific
   license_number?: string;
   expiration_date?: string;
@@ -74,6 +92,10 @@ export default function MyDocumentsPage() {
         const data = await response.json();
 
         if (data.success) {
+          // デバッグ: APIレスポンスを確認
+          console.log("[documents] API response:", data.data);
+          console.log("[documents] license image_attachment:", data.data.license?.image_attachment);
+
           // 承認済み書類のみをフィルタリング
           const filteredData: MyDocuments = {
             license: data.data.license?.approval_status === "approved" ? data.data.license : null,
@@ -84,6 +106,7 @@ export default function MyDocumentsPage() {
               (i: DocumentData) => i.approval_status === "approved"
             ),
           };
+          console.log("[documents] filteredData:", filteredData);
           setDocuments(filteredData);
         } else {
           setError(data.error || "書類の取得に失敗しました");
@@ -388,16 +411,20 @@ export default function MyDocumentsPage() {
                 {!selectedDoc && "書類プレビュー"}
               </h3>
             </div>
-            <div className="aspect-[4/3] bg-gray-100">
-              {currentDoc?.image_url ? (
-                <SimpleFilePreview
-                  fileKey={currentDoc.image_url}
-                  title={
+            <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
+              {(() => {
+                const url = getAttachmentUrl(currentDoc?.image_attachment);
+                console.log("[documents] image URL:", url, "attachment:", currentDoc?.image_attachment);
+                return url;
+              })() ? (
+                <img
+                  src={getAttachmentUrl(currentDoc?.image_attachment)!}
+                  alt={
                     selectedDoc?.type === "license" ? "運転免許証" :
                     selectedDoc?.type === "vehicle" ? "車検証" :
                     "任意保険証"
                   }
-                  className="w-full h-full"
+                  className="max-w-full max-h-full object-contain"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-center text-gray-400">

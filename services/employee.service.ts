@@ -119,16 +119,17 @@ export async function getEmployeeByEmail(email: string): Promise<Employee | null
     // 社員名（直接フィールドまたはPeopleフィールドから取得）
     const directName = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
     const peopleName = extractNameFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
-    const employeeName = directName || peopleName || "";
+    const employeeName = String(directName || peopleName || "");
 
     // メール
     const peopleEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
     const directEmail = item.fields[EMPLOYEE_MASTER_FIELDS.email];
-    const employeeEmail = peopleEmail || directEmail || "";
+    const employeeEmail = String(peopleEmail || directEmail || "");
 
     // 部署
     const department = item.fields[EMPLOYEE_MASTER_FIELDS.department];
-    const departmentStr = Array.isArray(department) ? department[0] || "" : String(department || "");
+    const departmentVal = Array.isArray(department) ? department[0] : department;
+    const departmentStr = typeof departmentVal === "string" ? departmentVal : String(departmentVal || "");
 
     // 退職フラグ
     const isResigned = item.fields[EMPLOYEE_MASTER_FIELDS.resigned_flag] === true;
@@ -171,16 +172,17 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
     // 社員名（直接フィールドまたはPeopleフィールドから取得）
     const directName = item.fields[EMPLOYEE_MASTER_FIELDS.employee_name];
     const peopleName = extractNameFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
-    const employeeName = directName || peopleName || "";
+    const employeeName = String(directName || peopleName || "");
 
     // メール
     const peopleEmail = extractEmailFromPeopleField(item.fields[EMPLOYEE_MASTER_FIELDS.people_field]);
     const directEmail = item.fields[EMPLOYEE_MASTER_FIELDS.email];
-    const email = peopleEmail || directEmail || "";
+    const emailStr = String(peopleEmail || directEmail || "");
 
     // 部署
     const department = item.fields[EMPLOYEE_MASTER_FIELDS.department];
-    const departmentStr = Array.isArray(department) ? department[0] || "" : String(department || "");
+    const departmentVal = Array.isArray(department) ? department[0] : department;
+    const departmentStr = typeof departmentVal === "string" ? departmentVal : String(departmentVal || "");
 
     // 退職フラグ
     const isResigned = item.fields[EMPLOYEE_MASTER_FIELDS.resigned_flag] === true;
@@ -188,7 +190,7 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
     return {
       employee_id: String(item.fields[EMPLOYEE_MASTER_FIELDS.employee_id] || ""),
       employee_name: employeeName,
-      email: email,
+      email: emailStr,
       department: departmentStr,
       role: "applicant" as any,
       employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,

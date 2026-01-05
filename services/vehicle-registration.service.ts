@@ -20,7 +20,8 @@ function extractAttachment(attachmentField: any): LarkAttachment | null {
     name: first.name || "",
     size: first.size || 0,
     type: first.type || first.mime_type || "",
-    tmp_url: first.tmp_url || first.url || "",
+    tmp_url: first.tmp_url || "",
+    url: first.url || "",
   };
 }
 

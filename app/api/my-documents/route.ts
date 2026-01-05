@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     const myInsurances = insurances.filter((i) => i.employee_id === userId);
 
     console.log(`[my-documents] myLicense found: ${!!myLicense}, myVehicles: ${myVehicles.length}, myInsurances: ${myInsurances.length}`);
+    console.log(`[my-documents] myLicense.image_attachment:`, JSON.stringify(myLicense?.image_attachment));
 
     return NextResponse.json({
       success: true,
