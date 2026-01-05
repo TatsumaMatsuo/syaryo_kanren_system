@@ -2,17 +2,21 @@
 
 import { useState } from "react";
 import { Search, FileText, Car, Shield, User, Calendar, CheckCircle, XCircle, Clock, Image as ImageIcon } from "lucide-react";
-import { LarkUser, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
-import { FileViewer } from "@/components/ui/file-viewer";
+import { LarkUser, DriversLicense, VehicleRegistration, InsurancePolicy, LarkAttachment } from "@/types";
 
-// image_attachmentからファイルURLを取得するヘルパー関数
-function getFileUrl(attachment: any): string | null {
+// image_attachmentからファイルURLを取得（ダッシュボードと同じ方式）
+function getAttachmentUrl(attachment: LarkAttachment | LarkAttachment[] | undefined | null): string | null {
   if (!attachment) return null;
+  // 配列の場合は最初の要素を使用
   const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  // API経由でダウンロード（Lark URLは認証が必要なため直接使用不可）
   if (att?.file_token) {
+    // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
     const baseUrl = `/api/attachments/${att.file_token}`;
-    if (att.url) {
-      return `${baseUrl}?url=${encodeURIComponent(att.url)}`;
+    // url（直接ダウンロードURL）を優先的に使用
+    const downloadUrl = att.url;
+    if (downloadUrl) {
+      return `${baseUrl}?url=${encodeURIComponent(downloadUrl)}`;
     }
     return baseUrl;
   }
@@ -85,11 +89,6 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // 画像URLの取得（ファイルキーからAPI URLを生成）
-  const getImageUrl = (fileKey: string | undefined) => {
-    return fileKey || null;
   };
 
   // ステータスバッジ
@@ -264,17 +263,15 @@ export default function SearchPage() {
                       </div>
                     </div>
                     {documents.license.image_attachment && (
-                      <div className="relative h-40 border rounded-lg overflow-hidden">
-                        <FileViewer
-                          fileKey={getFileUrl(documents.license.image_attachment)}
-                          title="免許証"
-                          compact={true}
-                          heightClass="h-full"
-                          onClick={() => setSelectedImage(getFileUrl(documents.license!.image_attachment))}
+                      <div
+                        className="relative h-40 border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(getAttachmentUrl(documents.license!.image_attachment))}
+                      >
+                        <img
+                          src={getAttachmentUrl(documents.license.image_attachment)!}
+                          alt="免許証"
+                          className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-20 transition-all pointer-events-none">
-                          <ImageIcon className="w-8 h-8 text-white opacity-0 group-hover:opacity-100" />
-                        </div>
                       </div>
                     )}
                   </div>
@@ -329,13 +326,14 @@ export default function SearchPage() {
                       </div>
                     </div>
                     {documents.vehicle.image_attachment && (
-                      <div className="relative h-40 border rounded-lg overflow-hidden">
-                        <FileViewer
-                          fileKey={getFileUrl(documents.vehicle.image_attachment)}
-                          title="車検証"
-                          compact={true}
-                          heightClass="h-full"
-                          onClick={() => setSelectedImage(getFileUrl(documents.vehicle!.image_attachment))}
+                      <div
+                        className="relative h-40 border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(getAttachmentUrl(documents.vehicle!.image_attachment))}
+                      >
+                        <img
+                          src={getAttachmentUrl(documents.vehicle.image_attachment)!}
+                          alt="車検証"
+                          className="w-full h-full object-cover"
                         />
                       </div>
                     )}
@@ -394,13 +392,14 @@ export default function SearchPage() {
                         </div>
                       </div>
                       {documents.insurance.image_attachment && (
-                        <div className="relative h-40 border rounded-lg overflow-hidden">
-                          <FileViewer
-                            fileKey={getFileUrl(documents.insurance.image_attachment)}
-                            title="任意保険証"
-                            compact={true}
-                            heightClass="h-full"
-                            onClick={() => setSelectedImage(getFileUrl(documents.insurance!.image_attachment))}
+                        <div
+                          className="relative h-40 border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedImage(getAttachmentUrl(documents.insurance!.image_attachment))}
+                        >
+                          <img
+                            src={getAttachmentUrl(documents.insurance.image_attachment)!}
+                            alt="任意保険証"
+                            className="w-full h-full object-cover"
                           />
                         </div>
                       )}
@@ -484,7 +483,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* 画像/PDFモーダル */}
+      {/* 画像モーダル */}
       {selectedImage && (
         <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
@@ -502,12 +501,11 @@ export default function SearchPage() {
                 ✕
               </button>
             </div>
-            <div className="h-[80vh]">
-              <FileViewer
-                fileKey={selectedImage}
-                title="書類"
-                showControls={true}
-                bgClass="bg-gray-100"
+            <div className="h-[80vh] bg-gray-100 flex items-center justify-center">
+              <img
+                src={selectedImage}
+                alt="書類"
+                className="max-w-full max-h-full object-contain"
               />
             </div>
           </div>
