@@ -70,15 +70,25 @@ export async function GET(
 
       console.log(`[permit-download] Using baseUrl: ${baseUrl}`);
 
-      // 日付を確実にDateオブジェクトに変換
-      const issueDate = permit.issue_date instanceof Date
-        ? permit.issue_date
-        : new Date(permit.issue_date);
-      const expirationDate = permit.expiration_date instanceof Date
-        ? permit.expiration_date
-        : new Date(permit.expiration_date);
+      // 日付を確実に有効なDateオブジェクトに変換（Invalid Date対策）
+      const parseDate = (dateValue: Date | string | number | undefined | null, fallback: Date): Date => {
+        if (!dateValue) return fallback;
+        const parsed = dateValue instanceof Date ? dateValue : new Date(dateValue);
+        // Invalid Dateチェック（isNaN(date.getTime())がtrueならInvalid Date）
+        return isNaN(parsed.getTime()) ? fallback : parsed;
+      };
+
+      const now = new Date();
+      const oneYearLater = new Date(now);
+      oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
+      const issueDate = parseDate(permit.issue_date, now);
+      const expirationDate = parseDate(permit.expiration_date, oneYearLater);
 
       console.log(`[permit-download] Dates - issue: ${issueDate.toISOString()}, expiration: ${expirationDate.toISOString()}`);
+
+      // verificationTokenが空の場合はpermitIdを使用
+      const verificationToken = permit.verification_token || permit.id;
 
       // PDFを動的に生成
       try {
@@ -89,7 +99,7 @@ export async function GET(
           issueDate,
           expirationDate,
           permitId: permit.id,
-          verificationToken: permit.verification_token,
+          verificationToken,
           baseUrl,
         });
         console.log(`[permit-download] PDF generated successfully, size: ${pdfBuffer.length} bytes`);

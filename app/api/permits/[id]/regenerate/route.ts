@@ -54,16 +54,33 @@ export async function POST(
       }
     }
 
+    // 日付を確実に有効なDateオブジェクトに変換（Invalid Date対策）
+    const parseDate = (dateValue: Date | string | number | undefined | null, fallback: Date): Date => {
+      if (!dateValue) return fallback;
+      const parsed = dateValue instanceof Date ? dateValue : new Date(dateValue);
+      return isNaN(parsed.getTime()) ? fallback : parsed;
+    };
+
+    const now = new Date();
+    const oneYearLater = new Date(now);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
+    const issueDate = parseDate(permit.issue_date, now);
+    const expirationDate = parseDate(permit.expiration_date, oneYearLater);
+
+    // verificationTokenが空の場合はpermitIdを使用
+    const verificationToken = permit.verification_token || permit.id;
+
     // PDFを再生成
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
     const fileKey = await generatePermitPdf({
       employeeName: employeeName || "不明",
       vehicleNumber: vehicleNumber || "不明",
       vehicleModel: vehicleModel || "不明",
-      issueDate: permit.issue_date,
-      expirationDate: permit.expiration_date,
+      issueDate,
+      expirationDate,
       permitId: permit.id,
-      verificationToken: permit.verification_token,
+      verificationToken,
       baseUrl,
     });
 

@@ -26,6 +26,15 @@ export interface GeneratePermitPdfInput {
 }
 
 /**
+ * 日付を確実に有効なDateオブジェクトに変換
+ */
+function ensureValidDate(dateValue: Date | string | number | undefined | null, fallback: Date): Date {
+  if (!dateValue) return fallback;
+  const parsed = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  return isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+/**
  * 許可証PDFを生成してファイルに保存
  * @returns 保存されたファイルのキー（file_key）
  */
@@ -33,22 +42,31 @@ export async function generatePermitPdf(
   input: GeneratePermitPdfInput
 ): Promise<string> {
   try {
-    // QRコードを生成
+    // 日付を検証（Invalid Date対策）
+    const now = new Date();
+    const oneYearLater = new Date(now);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
+    const validIssueDate = ensureValidDate(input.issueDate, now);
+    const validExpirationDate = ensureValidDate(input.expirationDate, oneYearLater);
+
+    // QRコードを生成（verificationTokenが空の場合はpermitIdを使用）
+    const verificationToken = input.verificationToken || input.permitId;
     const qrCodeDataUrl = await generateVerificationQRCode(
       input.baseUrl,
-      input.verificationToken
+      verificationToken
     );
 
     // 会社情報を取得
     const companyInfo: CompanyInfo = await getCompanyInfo();
 
-    // PDFテンプレートのprops
+    // PDFテンプレートのprops（検証済みの日付を使用）
     const templateProps: PermitTemplateProps = {
       employeeName: input.employeeName,
       vehicleNumber: input.vehicleNumber,
       vehicleModel: input.vehicleModel,
-      issueDate: input.issueDate,
-      expirationDate: input.expirationDate,
+      issueDate: validIssueDate,
+      expirationDate: validExpirationDate,
       qrCodeDataUrl,
       permitId: input.permitId,
       companyInfo,
@@ -82,22 +100,31 @@ export async function generatePermitPdfBuffer(
   input: GeneratePermitPdfInput
 ): Promise<Buffer> {
   try {
-    // QRコードを生成
+    // 日付を検証（Invalid Date対策）
+    const now = new Date();
+    const oneYearLater = new Date(now);
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
+    const validIssueDate = ensureValidDate(input.issueDate, now);
+    const validExpirationDate = ensureValidDate(input.expirationDate, oneYearLater);
+
+    // QRコードを生成（verificationTokenが空の場合はpermitIdを使用）
+    const verificationToken = input.verificationToken || input.permitId;
     const qrCodeDataUrl = await generateVerificationQRCode(
       input.baseUrl,
-      input.verificationToken
+      verificationToken
     );
 
     // 会社情報を取得
     const companyInfo: CompanyInfo = await getCompanyInfo();
 
-    // PDFテンプレートのprops
+    // PDFテンプレートのprops（検証済みの日付を使用）
     const templateProps: PermitTemplateProps = {
       employeeName: input.employeeName,
       vehicleNumber: input.vehicleNumber,
       vehicleModel: input.vehicleModel,
-      issueDate: input.issueDate,
-      expirationDate: input.expirationDate,
+      issueDate: validIssueDate,
+      expirationDate: validExpirationDate,
       qrCodeDataUrl,
       permitId: input.permitId,
       companyInfo,
