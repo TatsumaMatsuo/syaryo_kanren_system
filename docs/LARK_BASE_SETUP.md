@@ -65,7 +65,8 @@
 | license_type | テキスト | ○ | 免許種類 |
 | issue_date | 日付 | ○ | 発行日 |
 | expiration_date | 日付 | ○ | 有効期限 |
-| image_url | 添付ファイル | ○ | 免許証画像 |
+| image_url | 添付ファイル | ○ | 免許証画像（表面） |
+| image_url_ura | 添付ファイル |  | 免許証画像（裏面） |
 | status | 単一選択 | ○ | ステータス（temporary/approved） |
 | approval_status | 単一選択 | ○ | 承認状態（pending/approved/rejected） |
 | rejection_reason | テキスト |  | 却下理由 |
