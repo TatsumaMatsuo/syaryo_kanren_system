@@ -13,6 +13,7 @@ interface DriversLicenseFormProps {
 
 export function DriversLicenseForm({ onSubmit, isLoading = false }: DriversLicenseFormProps) {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedFileUra, setUploadedFileUra] = useState<File | null>(null);
 
   const {
     register,
@@ -28,6 +29,11 @@ export function DriversLicenseForm({ onSubmit, isLoading = false }: DriversLicen
     setValue("image_file", file);
   };
 
+  const handleFileChangeUra = (file: File | null) => {
+    setUploadedFileUra(file);
+    setValue("image_file_ura", file);
+  };
+
   const onFormSubmit = async (data: DriversLicenseFormData) => {
     await onSubmit(data);
   };
@@ -37,15 +43,34 @@ export function DriversLicenseForm({ onSubmit, isLoading = false }: DriversLicen
       <div className="bg-white shadow-sm rounded-lg p-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">免許証情報</h2>
 
-        {/* 免許証画像アップロード */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            免許証画像 <span className="text-red-500">*</span>
-          </label>
-          <FileUpload onFileChange={handleFileChange} />
-          {errors.image_file && (
-            <p className="mt-1 text-sm text-red-600">{errors.image_file.message}</p>
-          )}
+        {/* 免許証画像アップロード（表面・裏面） */}
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <span className="font-medium">撮影のポイント：</span>免許証は横向き（横長）で撮影してください。
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* 表面 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              免許証画像（表面） <span className="text-red-500">*</span>
+            </label>
+            <FileUpload onFileChange={handleFileChange} />
+            {errors.image_file && (
+              <p className="mt-1 text-sm text-red-600">{errors.image_file.message}</p>
+            )}
+          </div>
+
+          {/* 裏面 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              免許証画像（裏面）
+            </label>
+            <FileUpload onFileChange={handleFileChangeUra} />
+            {errors.image_file_ura && (
+              <p className="mt-1 text-sm text-red-600">{errors.image_file_ura.message}</p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

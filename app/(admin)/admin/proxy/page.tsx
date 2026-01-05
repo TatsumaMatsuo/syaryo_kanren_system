@@ -160,6 +160,17 @@ function ProxyApplicationContent() {
         imageAttachment = uploadResult.attachment;
       }
 
+      let imageAttachmentUra = null;
+      if (data.image_file_ura) {
+        const formDataUra = new FormData();
+        formDataUra.append("file", data.image_file_ura);
+        const uploadResponseUra = await fetch("/api/upload-attachment", { method: "POST", body: formDataUra });
+        if (!uploadResponseUra.ok) throw new Error("裏面ファイルのアップロードに失敗しました");
+        const uploadResultUra = await uploadResponseUra.json();
+        if (!uploadResultUra.success) throw new Error(uploadResultUra.error || "裏面ファイルのアップロードに失敗しました");
+        imageAttachmentUra = uploadResultUra.attachment;
+      }
+
       const response = await fetch("/api/applications/licenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,6 +181,7 @@ function ProxyApplicationContent() {
           issue_date: data.issue_date.toISOString(),
           expiration_date: data.expiration_date.toISOString(),
           image_attachment: imageAttachment,
+          image_attachment_ura: imageAttachmentUra,
         }),
       });
 

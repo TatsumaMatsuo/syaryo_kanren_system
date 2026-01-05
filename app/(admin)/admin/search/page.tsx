@@ -231,49 +231,72 @@ export default function SearchPage() {
                 </div>
 
                 {documents.license ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">免許証番号:</span>
-                          <span className="text-gray-900 font-medium">{documents.license.license_number}</span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">種別:</span>
-                          <span className="text-gray-900">{documents.license.license_type}</span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">交付日:</span>
-                          <span className="text-gray-900">
-                            {new Date(documents.license.issue_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">有効期限:</span>
-                          <span className="text-gray-900 font-medium">
-                            {new Date(documents.license.expiration_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="flex">
-                          <span className="text-gray-500 w-32">登録日:</span>
-                          <span className="text-gray-900 text-xs">
-                            {new Date(documents.license.created_at).toLocaleString()}
-                          </span>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">免許証番号:</span>
+                            <span className="text-gray-900 font-medium">{documents.license.license_number}</span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">種別:</span>
+                            <span className="text-gray-900">{documents.license.license_type}</span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">交付日:</span>
+                            <span className="text-gray-900">
+                              {new Date(documents.license.issue_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">有効期限:</span>
+                            <span className="text-gray-900 font-medium">
+                              {new Date(documents.license.expiration_date).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="flex">
+                            <span className="text-gray-500 w-32">登録日:</span>
+                            <span className="text-gray-900 text-xs">
+                              {new Date(documents.license.created_at).toLocaleString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    {documents.license.image_attachment && (
-                      <div
-                        className="relative h-40 border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setSelectedImage(getAttachmentUrl(documents.license!.image_attachment))}
-                      >
-                        <img
-                          src={getAttachmentUrl(documents.license.image_attachment)!}
-                          alt="免許証"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
+                    {/* 免許証画像（表面・裏面）- 横向き2段表示 */}
+                    <div className="space-y-4">
+                      {documents.license.image_attachment && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">表面</p>
+                          <div
+                            className="relative aspect-[16/10] border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity bg-gray-100"
+                            onClick={() => setSelectedImage(getAttachmentUrl(documents.license!.image_attachment))}
+                          >
+                            <img
+                              src={getAttachmentUrl(documents.license.image_attachment)!}
+                              alt="免許証（表面）"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      {documents.license.image_attachment_ura && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">裏面</p>
+                          <div
+                            className="relative aspect-[16/10] border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity bg-gray-100"
+                            onClick={() => setSelectedImage(getAttachmentUrl(documents.license!.image_attachment_ura))}
+                          >
+                            <img
+                              src={getAttachmentUrl(documents.license.image_attachment_ura)!}
+                              alt="免許証（裏面）"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500 text-sm">登録されていません</p>

@@ -18,7 +18,11 @@ export const driversLicenseSchema = z.object({
       message: "有効期限を選択してください",
     }),
   image_file: z
-    .instanceof(File, { message: "免許証の画像をアップロードしてください" })
+    .instanceof(File, { message: "免許証（表面）の画像をアップロードしてください" })
+    .optional()
+    .nullable(),
+  image_file_ura: z
+    .instanceof(File, { message: "免許証（裏面）の画像をアップロードしてください" })
     .optional()
     .nullable(),
 });

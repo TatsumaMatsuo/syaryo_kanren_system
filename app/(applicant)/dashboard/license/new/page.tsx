@@ -69,6 +69,29 @@ export default function NewLicensePage() {
         imageAttachment = uploadResult.attachment;
       }
 
+      // 1.5. 裏面画像をアップロード
+      let imageAttachmentUra = null;
+      if (data.image_file_ura) {
+        const formDataUra = new FormData();
+        formDataUra.append("file", data.image_file_ura);
+
+        const uploadResponseUra = await fetch("/api/upload-attachment", {
+          method: "POST",
+          body: formDataUra,
+        });
+
+        if (!uploadResponseUra.ok) {
+          const errorData = await uploadResponseUra.json();
+          throw new Error(errorData.error || "裏面ファイルのアップロードに失敗しました");
+        }
+
+        const uploadResultUra = await uploadResponseUra.json();
+        if (!uploadResultUra.success) {
+          throw new Error(uploadResultUra.error || "裏面ファイルのアップロードに失敗しました");
+        }
+        imageAttachmentUra = uploadResultUra.attachment;
+      }
+
       // 2. 申請データを送信（社員コードを使用）
       const response = await fetch("/api/applications/licenses", {
         method: "POST",
@@ -82,6 +105,7 @@ export default function NewLicensePage() {
           issue_date: data.issue_date.toISOString(),
           expiration_date: data.expiration_date.toISOString(),
           image_attachment: imageAttachment,
+          image_attachment_ura: imageAttachmentUra,
         }),
       });
 

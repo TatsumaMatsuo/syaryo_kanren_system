@@ -51,6 +51,7 @@ export async function getDriversLicenses(employeeId?: string): Promise<DriversLi
         issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
         expiration_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.expiration_date]),
         image_attachment: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment]),
+        image_attachment_ura: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment_ura]),
         status: item.fields[DRIVERS_LICENSE_FIELDS.status],
         approval_status: item.fields[DRIVERS_LICENSE_FIELDS.approval_status],
         rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
@@ -87,6 +88,7 @@ export async function createDriversLicense(
       [DRIVERS_LICENSE_FIELDS.license_type]: data.license_type,
       [DRIVERS_LICENSE_FIELDS.expiration_date]: data.expiration_date.getTime(), // Unixタイムスタンプ（ミリ秒）
       [DRIVERS_LICENSE_FIELDS.image_attachment]: data.image_attachment ? [data.image_attachment] : [],
+      [DRIVERS_LICENSE_FIELDS.image_attachment_ura]: data.image_attachment_ura ? [data.image_attachment_ura] : [],
       [DRIVERS_LICENSE_FIELDS.status]: data.status,
       [DRIVERS_LICENSE_FIELDS.approval_status]: data.approval_status,
       [DRIVERS_LICENSE_FIELDS.deleted_flag]: false,
@@ -123,6 +125,8 @@ export async function updateDriversLicense(
       fields[DRIVERS_LICENSE_FIELDS.expiration_date] = data.expiration_date.getTime();
     if (data.image_attachment !== undefined)
       fields[DRIVERS_LICENSE_FIELDS.image_attachment] = data.image_attachment ? [data.image_attachment] : [];
+    if (data.image_attachment_ura !== undefined)
+      fields[DRIVERS_LICENSE_FIELDS.image_attachment_ura] = data.image_attachment_ura ? [data.image_attachment_ura] : [];
     if (data.status) fields[DRIVERS_LICENSE_FIELDS.status] = data.status;
     if (data.approval_status)
       fields[DRIVERS_LICENSE_FIELDS.approval_status] = data.approval_status;
@@ -226,6 +230,7 @@ export async function getExpiringDriversLicenses(warningDays: number = 30): Prom
           issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
           expiration_date: new Date(expDate),
           image_attachment: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment]),
+          image_attachment_ura: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment_ura]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],
@@ -284,6 +289,7 @@ export async function getExpiredDriversLicenses(): Promise<DriversLicense[]> {
           issue_date: new Date(item.fields[DRIVERS_LICENSE_FIELDS.issue_date]),
           expiration_date: new Date(expDate),
           image_attachment: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment]),
+          image_attachment_ura: extractAttachment(item.fields[DRIVERS_LICENSE_FIELDS.image_attachment_ura]),
           status: status,
           approval_status: approvalStatus,
           rejection_reason: item.fields[DRIVERS_LICENSE_FIELDS.rejection_reason],

@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       issue_date: new Date(body.issue_date),
       expiration_date: new Date(body.expiration_date),
       image_attachment: body.image_attachment || null,
+      image_attachment_ura: body.image_attachment_ura || null,
       status: "temporary",
       approval_status: "pending",
       deleted_flag: false,

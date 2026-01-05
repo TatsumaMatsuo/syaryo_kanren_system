@@ -51,6 +51,7 @@ export const DRIVERS_LICENSE_FIELDS = {
   issue_date: "issue_date",
   expiration_date: "expiration_date",
   image_attachment: "image_attachment",
+  image_attachment_ura: "image_attachment_ura", // 裏面画像
   status: "status",
   approval_status: "approval_status",
   rejection_reason: "rejection_reason",

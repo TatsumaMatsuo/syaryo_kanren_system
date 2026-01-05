@@ -47,6 +47,7 @@ export interface DriversLicense {
   issue_date: Date;
   expiration_date: Date;
   image_attachment: LarkAttachment | null;
+  image_attachment_ura: LarkAttachment | null; // 裏面画像
   status: Status;
   approval_status: ApprovalStatus;
   rejection_reason?: string;

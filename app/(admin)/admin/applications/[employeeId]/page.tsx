@@ -381,6 +381,12 @@ export default function ApplicationDetailPage() {
     return getAttachmentUrl(currentDoc?.image_attachment);
   };
 
+  // 免許証裏面のファイルURLを取得
+  const getLicenseBackFileUrl = () => {
+    if (!application?.license) return null;
+    return getAttachmentUrl(application.license.image_attachment_ura);
+  };
+
   // ローディング中
   if (status === "loading" || loading) {
     return (
@@ -843,15 +849,85 @@ export default function ApplicationDetailPage() {
 
         {/* 右パネル: 画像/PDFビューア */}
         <div className="w-1/2 bg-gray-900 flex flex-col">
-          {getCurrentFileUrl() ? (
-            // PDFの場合はPDFビューアを表示
+          {/* 免許証の場合は表面・裏面を縦2段で表示（横向き） */}
+          {selectedDoc.category === "license" ? (
+            <>
+              <div className="bg-gray-800 px-4 py-3">
+                <h3 className="text-white font-medium">{getDocumentTitle()} - 画像</h3>
+              </div>
+              <div className="flex-1 p-4 overflow-auto">
+                <div className="space-y-4">
+                  {/* 表面 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-gray-400 text-sm">表面</p>
+                      {getCurrentFileUrl() && (
+                        <a
+                          href={getCurrentFileUrl()!}
+                          download
+                          className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors flex items-center"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          ダウンロード
+                        </a>
+                      )}
+                    </div>
+                    <div className="aspect-[16/10] bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                      {getCurrentFileUrl() ? (
+                        <img
+                          src={getCurrentFileUrl()!}
+                          alt="運転免許証（表面）"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <FileText className="h-12 w-12 mx-auto mb-2" />
+                          <p className="text-sm">画像なし</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* 裏面 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-gray-400 text-sm">裏面</p>
+                      {getLicenseBackFileUrl() && (
+                        <a
+                          href={getLicenseBackFileUrl()!}
+                          download
+                          className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 transition-colors flex items-center"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          ダウンロード
+                        </a>
+                      )}
+                    </div>
+                    <div className="aspect-[16/10] bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                      {getLicenseBackFileUrl() ? (
+                        <img
+                          src={getLicenseBackFileUrl()!}
+                          alt="運転免許証（裏面）"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-center text-gray-500">
+                          <FileText className="h-12 w-12 mx-auto mb-2" />
+                          <p className="text-sm">画像なし</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : getCurrentFileUrl() ? (
+            // 車検証・保険証の場合は従来通りの画像ビューア
             isPdfFile() ? (
               <PDFViewer
                 fileUrl={getCurrentFileUrl()!}
                 title={getDocumentTitle()}
               />
             ) : (
-              // 画像の場合は従来の画像ビューアを表示
               <>
                 {/* 画像コントロールバー */}
                 <div className="bg-gray-800 px-4 py-3 flex items-center justify-between">
@@ -878,90 +954,67 @@ export default function ApplicationDetailPage() {
                   </div>
                 </div>
 
-                {/* 画像/PDF表示エリア */}
+                {/* 画像表示エリア */}
                 <div className="flex-1 relative bg-gray-900">
-                  {isPdfFile() ? (
-                    <>
-                      {/* PDFダウンロードボタン */}
-                      <div className="absolute top-4 right-4 z-10">
-                        <a
-                          href={getCurrentFileUrl()!}
-                          download
-                          className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors flex items-center space-x-2"
-                          title="ダウンロード"
-                        >
-                          <Download className="h-5 w-5 text-gray-700" />
-                          <span className="text-gray-700 text-sm">ダウンロード</span>
-                        </a>
-                      </div>
-                      {/* PDF表示 */}
-                      <iframe
-                        src={getCurrentFileUrl()!}
-                        className="w-full h-full"
-                        title={getDocumentTitle()}
-                      />
-                    </>
-                  ) : (
-                    <TransformWrapper
-                      initialScale={1}
-                      minScale={0.5}
-                      maxScale={4}
-                      centerOnInit
-                      key={`${selectedDoc.category}-${selectedDoc.index}-${imageRotation}`}
-                    >
-                      {({ zoomIn, zoomOut, resetTransform }) => (
-                        <>
-                          {/* ズームコントロール */}
-                          <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
-                            <button
-                              onClick={() => zoomIn()}
-                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                              title="拡大"
-                            >
-                              <ZoomIn className="h-5 w-5 text-gray-700" />
-                            </button>
-                            <button
-                              onClick={() => zoomOut()}
-                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                              title="縮小"
-                            >
-                              <ZoomOut className="h-5 w-5 text-gray-700" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                resetTransform();
-                                setImageRotation(0);
-                              }}
-                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                              title="リセット"
-                            >
-                              <RotateCw className="h-5 w-5 text-gray-700" />
-                            </button>
-                            <a
-                              href={getCurrentFileUrl()!}
-                              download
-                              className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
-                              title="ダウンロード"
-                            >
-                              <Download className="h-5 w-5 text-gray-700" />
-                            </a>
-                          </div>
-
-                          <TransformComponent
-                            wrapperClass="w-full h-full"
-                            contentClass="w-full h-full flex items-center justify-center"
+                  <TransformWrapper
+                    initialScale={1}
+                    minScale={0.5}
+                    maxScale={4}
+                    centerOnInit
+                    key={`${selectedDoc.category}-${selectedDoc.index}-${imageRotation}`}
+                  >
+                    {({ zoomIn, zoomOut, resetTransform }) => (
+                      <>
+                        {/* ズームコントロール */}
+                        <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
+                          <button
+                            onClick={() => zoomIn()}
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="拡大"
                           >
-                            <img
-                              src={getCurrentFileUrl()!}
-                              alt={getDocumentTitle()}
-                              className="max-w-full max-h-full object-contain transition-transform duration-300"
-                              style={{ transform: `rotate(${imageRotation}deg)` }}
-                            />
-                          </TransformComponent>
-                        </>
-                      )}
-                    </TransformWrapper>
-                  )}
+                            <ZoomIn className="h-5 w-5 text-gray-700" />
+                          </button>
+                          <button
+                            onClick={() => zoomOut()}
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="縮小"
+                          >
+                            <ZoomOut className="h-5 w-5 text-gray-700" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              resetTransform();
+                              setImageRotation(0);
+                            }}
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="リセット"
+                          >
+                            <RotateCw className="h-5 w-5 text-gray-700" />
+                          </button>
+                          <a
+                            href={getCurrentFileUrl()!}
+                            download
+                            className="p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100 transition-colors"
+                            title="ダウンロード"
+                          >
+                            <Download className="h-5 w-5 text-gray-700" />
+                          </a>
+                        </div>
+
+                        <TransformComponent
+                          wrapperClass="w-full h-full"
+                          contentClass="w-full h-full flex items-center justify-center"
+                        >
+                          <img
+                            src={getCurrentFileUrl()!}
+                            alt={getDocumentTitle()}
+                            className="max-w-full max-h-full object-contain transition-transform duration-300"
+                            style={{ transform: `rotate(${imageRotation}deg)` }}
+                          />
+                        </TransformComponent>
+                      </>
+                    )}
+                  </TransformWrapper>
                 </div>
               </>
             )

@@ -4,25 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { ApplicationOverview } from "@/types";
-import { CheckCircle, XCircle, Clock, FileText, Car, Shield, Eye, X, ExternalLink, CheckSquare, Square } from "lucide-react";
+import { CheckCircle, XCircle, Clock, FileText, Car, Shield, ExternalLink, CheckSquare, Square } from "lucide-react";
 import { useToast, ToastContainer } from "@/components/ui/toast";
-import { FileViewer } from "@/components/ui/file-viewer";
-
-// image_attachmentからファイルURLを取得するヘルパー関数
-function getFileUrl(attachment: any): string | null {
-  if (!attachment) return null;
-  const att = Array.isArray(attachment) ? attachment[0] : attachment;
-  // API経由でダウンロード（Lark URLは認証が必要なため直接使用不可）
-  if (att?.file_token) {
-    // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
-    const baseUrl = `/api/attachments/${att.file_token}`;
-    if (att.url) {
-      return `${baseUrl}?url=${encodeURIComponent(att.url)}`;
-    }
-    return baseUrl;
-  }
-  return null;
-}
 
 // 一括承認用の型定義
 interface BulkApprovalItem {
@@ -40,11 +23,6 @@ export default function AdminApplicationsPage() {
   const [selectedApp, setSelectedApp] = useState<ApplicationOverview | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState<{
-    show: boolean;
-    imageUrl: string | null;
-    title: string;
-  }>({ show: false, imageUrl: null, title: "" });
 
   // 一括承認用の選択状態
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(new Set());
@@ -270,18 +248,6 @@ export default function AdminApplicationsPage() {
   const handleReject = (app: ApplicationOverview) => {
     setSelectedApp(app);
     setShowRejectModal(true);
-  };
-
-  const handleViewImage = (fileKey: string, title: string) => {
-    setImagePreview({
-      show: true,
-      imageUrl: fileKey, // fileKeyを渡す（URLではなく）
-      title,
-    });
-  };
-
-  const closeImagePreview = () => {
-    setImagePreview({ show: false, imageUrl: null, title: "" });
   };
 
   // ローディング中
@@ -511,17 +477,6 @@ export default function AdminApplicationsPage() {
                           <p className="text-sm text-gray-600">
                             有効期限: {new Date(app.license.expiration_date).toLocaleDateString()}
                           </p>
-                          {getFileUrl(app.license.image_attachment) && (
-                            <button
-                              onClick={() =>
-                                handleViewImage(getFileUrl(app.license!.image_attachment)!, `${app.employee.employee_name}さんの免許証`)
-                              }
-                              className="mt-2 flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              画像を表示
-                            </button>
-                          )}
                         </>
                       ) : (
                         <p className="text-sm text-gray-400">未登録</p>
@@ -547,17 +502,6 @@ export default function AdminApplicationsPage() {
                               <p className="text-xs text-gray-600">
                                 車検期限: {new Date(vehicle.inspection_expiration_date).toLocaleDateString()}
                               </p>
-                              {getFileUrl(vehicle.image_attachment) && (
-                                <button
-                                  onClick={() =>
-                                    handleViewImage(getFileUrl(vehicle.image_attachment)!, `${app.employee.employee_name}さんの車検証（${vehicle.vehicle_number}）`)
-                                  }
-                                  className="mt-1 flex items-center text-xs text-green-600 hover:text-green-800 transition-colors"
-                                >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  画像を表示
-                                </button>
-                              )}
                             </div>
                           ))}
                         </div>
@@ -604,17 +548,6 @@ export default function AdminApplicationsPage() {
                                     </span>
                                   )}
                                 </div>
-                                {getFileUrl(insurance.image_attachment) && (
-                                  <button
-                                    onClick={() =>
-                                      handleViewImage(getFileUrl(insurance.image_attachment)!, `${app.employee.employee_name}さんの任意保険証（${insurance.policy_number}）`)
-                                    }
-                                    className="mt-1 flex items-center text-xs text-purple-600 hover:text-purple-800 transition-colors"
-                                  >
-                                    <Eye className="h-3 w-3 mr-1" />
-                                    画像を表示
-                                  </button>
-                                )}
                               </div>
                             );
                           })}
@@ -645,15 +578,6 @@ export default function AdminApplicationsPage() {
             setShowRejectModal(false);
             setSelectedApp(null);
           }}
-        />
-      )}
-
-      {/* 画像プレビューモーダル */}
-      {imagePreview.show && (
-        <ImagePreviewModal
-          fileKey={imagePreview.imageUrl}
-          title={imagePreview.title}
-          onClose={closeImagePreview}
         />
       )}
 
@@ -767,53 +691,6 @@ function RejectModal({
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
           >
             {loading ? "送信中..." : "却下する"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ImagePreviewModal({
-  fileKey,
-  title,
-  onClose,
-}: {
-  fileKey: string | null;
-  title: string;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* ヘッダー */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* 画像/PDFコンテンツ */}
-        <div className="h-[70vh]">
-          <FileViewer
-            fileKey={fileKey}
-            title={title}
-            showControls={true}
-            bgClass="bg-gray-100"
-          />
-        </div>
-
-        {/* フッター */}
-        <div className="p-4 border-t flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            閉じる
           </button>
         </div>
       </div>

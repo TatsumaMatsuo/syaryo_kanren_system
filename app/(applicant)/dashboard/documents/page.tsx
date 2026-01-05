@@ -45,6 +45,7 @@ interface DocumentData {
   approval_status: string;
   rejection_reason?: string;
   image_attachment?: LarkAttachment | LarkAttachment[];
+  image_attachment_ura?: LarkAttachment | LarkAttachment[]; // 免許証裏面
   // License specific
   license_number?: string;
   expiration_date?: string;
@@ -411,31 +412,74 @@ export default function MyDocumentsPage() {
                 {!selectedDoc && "書類プレビュー"}
               </h3>
             </div>
-            <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center">
-              {(() => {
-                const url = getAttachmentUrl(currentDoc?.image_attachment);
-                console.log("[documents] image URL:", url, "attachment:", currentDoc?.image_attachment);
-                return url;
-              })() ? (
-                <img
-                  src={getAttachmentUrl(currentDoc?.image_attachment)!}
-                  alt={
-                    selectedDoc?.type === "license" ? "運転免許証" :
-                    selectedDoc?.type === "vehicle" ? "車検証" :
-                    "任意保険証"
-                  }
-                  className="max-w-full max-h-full object-contain"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-center text-gray-400">
+            <div className="bg-gray-100">
+              {selectedDoc?.type === "license" && currentDoc ? (
+                // 免許証の場合は表面・裏面を縦2段で表示（横向き）
+                <div className="p-4 space-y-4">
+                  {/* 表面 */}
                   <div>
-                    <FileText className="h-16 w-16 mx-auto mb-2" />
-                    <p>
-                      {selectedDoc
-                        ? "画像がアップロードされていません"
-                        : "左の書類を選択してください"}
-                    </p>
+                    <p className="text-xs text-gray-500 mb-1">表面</p>
+                    <div className="aspect-[16/10] bg-white border rounded flex items-center justify-center">
+                      {getAttachmentUrl(currentDoc.image_attachment) ? (
+                        <img
+                          src={getAttachmentUrl(currentDoc.image_attachment)!}
+                          alt="運転免許証（表面）"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-gray-400 text-center">
+                          <FileText className="h-8 w-8 mx-auto mb-1" />
+                          <p className="text-xs">なし</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  {/* 裏面 */}
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">裏面</p>
+                    <div className="aspect-[16/10] bg-white border rounded flex items-center justify-center">
+                      {getAttachmentUrl(currentDoc.image_attachment_ura) ? (
+                        <img
+                          src={getAttachmentUrl(currentDoc.image_attachment_ura)!}
+                          alt="運転免許証（裏面）"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-gray-400 text-center">
+                          <FileText className="h-8 w-8 mx-auto mb-1" />
+                          <p className="text-xs">なし</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // 車検証・保険証の場合は従来通り1枚表示
+                <div className="aspect-[4/3] flex items-center justify-center">
+                  {(() => {
+                    const url = getAttachmentUrl(currentDoc?.image_attachment);
+                    console.log("[documents] image URL:", url, "attachment:", currentDoc?.image_attachment);
+                    return url;
+                  })() ? (
+                    <img
+                      src={getAttachmentUrl(currentDoc?.image_attachment)!}
+                      alt={
+                        selectedDoc?.type === "vehicle" ? "車検証" : "任意保険証"
+                      }
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-center text-gray-400">
+                      <div>
+                        <FileText className="h-16 w-16 mx-auto mb-2" />
+                        <p>
+                          {selectedDoc
+                            ? "画像がアップロードされていません"
+                            : "左の書類を選択してください"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
