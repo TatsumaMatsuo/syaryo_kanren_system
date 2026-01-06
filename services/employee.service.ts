@@ -4,7 +4,7 @@ import {
   updateBaseRecord,
 } from "@/lib/lark-client";
 import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/lark-tables";
-import { Employee, EmploymentStatus } from "@/types";
+import { Employee, EmploymentStatus, MembershipType } from "@/types";
 
 /**
  * Peopleフィールドから名前を抽出
@@ -73,6 +73,7 @@ export async function getEmployees(
         email: email,
         department: departmentStr,
         role: "applicant" as any,
+        membership_type: (item.fields[EMPLOYEE_FIELDS.membership_type] || "internal") as MembershipType,
         employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,
         hire_date: new Date(),
         resignation_date: undefined,
@@ -140,6 +141,7 @@ export async function getEmployeeByEmail(email: string): Promise<Employee | null
       email: employeeEmail,
       department: departmentStr,
       role: "applicant" as any,
+      membership_type: (item.fields[EMPLOYEE_FIELDS.membership_type] || "internal") as MembershipType,
       employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,
       hire_date: new Date(),
       resignation_date: undefined,
@@ -193,6 +195,7 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
       email: emailStr,
       department: departmentStr,
       role: "applicant" as any,
+      membership_type: (item.fields[EMPLOYEE_FIELDS.membership_type] || "internal") as MembershipType,
       employment_status: (isResigned ? "resigned" : "active") as EmploymentStatus,
       hire_date: new Date(),
       resignation_date: undefined,

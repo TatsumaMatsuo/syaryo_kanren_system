@@ -29,10 +29,12 @@ function getAttachmentUrl(attachment: LarkAttachment | LarkAttachment[] | undefi
   if (att?.file_token) {
     // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
     const baseUrl = `/api/attachments/${att.file_token}`;
-    // url（直接ダウンロードURL）を優先的に使用
-    const downloadUrl = att.url;
-    if (downloadUrl) {
-      return `${baseUrl}?url=${encodeURIComponent(downloadUrl)}`;
+    // tmp_urlを優先、次にurlを使用
+    if (att.tmp_url) {
+      return `${baseUrl}?url=${encodeURIComponent(att.tmp_url)}`;
+    }
+    if (att.url) {
+      return `${baseUrl}?url=${encodeURIComponent(att.url)}`;
     }
     return baseUrl;
   }

@@ -279,7 +279,15 @@ export function SimpleFilePreview({
   className?: string;
 }) {
   const fileUrl = getFileApiUrl(fileKey);
-  const { isPdf, isImage, loading } = useFileType(fileUrl);
+  const { isPdf, isImage, loading, error } = useFileType(fileUrl);
+  const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
+  // fileKeyが変わったらリセット
+  useEffect(() => {
+    setImgError(false);
+    setImgLoaded(false);
+  }, [fileKey]);
 
   if (!fileKey || !fileUrl) {
     return (
@@ -297,6 +305,16 @@ export function SimpleFilePreview({
     );
   }
 
+  if (error || imgError) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-gray-100 ${className}`}>
+        <XCircle className="h-8 w-8 text-red-400 mb-2" />
+        <p className="text-sm text-red-500">画像の読み込みに失敗しました</p>
+        <p className="text-xs text-gray-400 mt-1">Token: {fileKey?.substring(0, 20)}...</p>
+      </div>
+    );
+  }
+
   if (isPdf) {
     return (
       <iframe
@@ -308,10 +326,19 @@ export function SimpleFilePreview({
   }
 
   return (
-    <img
-      src={fileUrl}
-      alt={title}
-      className={`object-contain ${className}`}
-    />
+    <div className={`relative ${className}`}>
+      {!imgLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        </div>
+      )}
+      <img
+        src={fileUrl}
+        alt={title}
+        className={`object-contain w-full h-full ${imgLoaded ? '' : 'opacity-0'}`}
+        onLoad={() => setImgLoaded(true)}
+        onError={() => setImgError(true)}
+      />
+    </div>
   );
 }

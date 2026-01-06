@@ -1,18 +1,27 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import { JWT } from "next-auth/jwt";
 import { getEmployeeByEmail } from "@/services/employee.service";
+import { MembershipType } from "@/types";
 
-// メールアドレスから社員番号を取得
-async function getEmployeeIdByEmail(email: string): Promise<string | null> {
+// メールアドレスから社員情報を取得
+interface EmployeeAuthInfo {
+  employeeId: string | null;
+  membershipType: MembershipType | null;
+}
+
+async function getEmployeeInfoByEmail(email: string): Promise<EmployeeAuthInfo> {
   try {
     const employee = await getEmployeeByEmail(email);
     if (employee) {
-      return employee.employee_id;
+      return {
+        employeeId: employee.employee_id,
+        membershipType: employee.membership_type || "internal",
+      };
     }
-    return null;
+    return { employeeId: null, membershipType: null };
   } catch (error) {
-    console.error("Failed to get employee_id by email:", error);
-    return null;
+    console.error("Failed to get employee info by email:", error);
+    return { employeeId: null, membershipType: null };
   }
 }
 
@@ -101,17 +110,18 @@ const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account }): Promise<JWT> {
       if (account && user) {
-        // メールアドレスから社員番号を取得
-        let employeeId: string | null = null;
+        // メールアドレスから社員情報（社員番号とメンバーシップタイプ）を取得
+        let employeeInfo: EmployeeAuthInfo = { employeeId: null, membershipType: null };
         if (user.email) {
-          employeeId = await getEmployeeIdByEmail(user.email);
-          console.log(`[Auth] Got employee_id for ${user.email}: ${employeeId}`);
+          employeeInfo = await getEmployeeInfoByEmail(user.email);
+          console.log(`[Auth] Got employee info for ${user.email}: id=${employeeInfo.employeeId}, type=${employeeInfo.membershipType}`);
         }
         // tokenを直接変更して返す（型の整合性を保つため）
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.userId = user.id;
-        token.employeeId = employeeId;
+        token.employeeId = employeeInfo.employeeId;
+        token.membershipType = employeeInfo.membershipType;
         token.email = user.email ?? undefined;
       }
       return token;
@@ -123,6 +133,7 @@ const authOptions: NextAuthOptions = {
           ...session.user,
           id: token.userId as string,
           employeeId: token.employeeId as string | null,
+          membershipType: token.membershipType as MembershipType | null,
         },
         accessToken: token.accessToken as string,
       };

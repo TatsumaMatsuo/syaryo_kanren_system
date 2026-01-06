@@ -5,6 +5,7 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type UserRole = "applicant" | "admin";
 export type EmploymentStatus = "active" | "resigned";
 export type PermissionRole = "admin" | "viewer";
+export type MembershipType = "internal" | "external" | "contractor";
 export type NotificationType =
   | "expiration_warning"
   | "expiration_alert"
@@ -31,6 +32,7 @@ export interface Employee {
   email: string;
   department?: string;
   role: UserRole;
+  membership_type: MembershipType;
   employment_status: EmploymentStatus;
   hire_date?: Date;
   resignation_date?: Date;

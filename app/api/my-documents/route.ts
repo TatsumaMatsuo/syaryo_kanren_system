@@ -59,6 +59,17 @@ export async function GET(request: NextRequest) {
     console.log(`[my-documents] myLicense found: ${!!myLicense}, myVehicles: ${myVehicles.length}, myInsurances: ${myInsurances.length}`);
     console.log(`[my-documents] myLicense.image_attachment:`, JSON.stringify(myLicense?.image_attachment));
 
+    // デバッグ: 画像添付ファイルの情報を出力
+    if (myLicense) {
+      console.log(`[my-documents] license image_attachment:`, JSON.stringify(myLicense.image_attachment));
+    }
+    if (myVehicles.length > 0) {
+      console.log(`[my-documents] vehicle[0] image_attachment:`, JSON.stringify(myVehicles[0].image_attachment));
+    }
+    if (myInsurances.length > 0) {
+      console.log(`[my-documents] insurance[0] image_attachment:`, JSON.stringify(myInsurances[0].image_attachment));
+    }
+
     return NextResponse.json({
       success: true,
       data: {

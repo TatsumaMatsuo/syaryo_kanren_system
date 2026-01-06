@@ -110,6 +110,7 @@ export const EMPLOYEE_FIELDS = {
   email: "社員名 (メンバー ).仕事用メールアドレス",
   department: "社員名 (メンバー ).部署",
   role: "role",
+  membership_type: "membership_type",
   employment_status: "employment_status",
   hire_date: "hire_date",
   resignation_date: "resignation_date",

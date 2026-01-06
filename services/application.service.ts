@@ -1,4 +1,4 @@
-import { ApplicationOverview, DriversLicense, VehicleRegistration, InsurancePolicy } from "@/types";
+import { ApplicationOverview, DriversLicense, VehicleRegistration, InsurancePolicy, MembershipType } from "@/types";
 import { getBaseRecords } from "@/lib/lark-client";
 import { LARK_TABLES, EMPLOYEE_FIELDS, USER_SEARCH_TABLE_ID, EMPLOYEE_MASTER_FIELDS } from "@/lib/lark-tables";
 
@@ -201,6 +201,7 @@ export async function getApplicationOverview(
               email: email,
               department: department,
               role: "applicant",
+              membership_type: (item.fields[EMPLOYEE_FIELDS.membership_type] || "internal") as MembershipType,
               employment_status: isResigned ? "resigned" : "active",
               hire_date: undefined,
               resignation_date: undefined,
