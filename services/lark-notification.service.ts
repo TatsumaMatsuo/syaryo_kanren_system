@@ -13,16 +13,18 @@ export interface MessageOptions {
   showActionButton?: boolean;
   actionUrl?: string;
   buttonText?: string;
+  /** 受信者IDの種類（デフォルト: open_id） */
+  receiveIdType?: "open_id" | "email";
 }
 
 /**
  * Lark Messengerでメッセージを送信
- * @param userId LarkユーザーのOpen ID
+ * @param receiveId LarkユーザーのOpen ID またはメールアドレス
  * @param message 送信するメッセージ
  * @param options オプション設定
  */
 export async function sendLarkMessage(
-  userId: string,
+  receiveId: string,
   message: NotificationTemplate,
   options: MessageOptions = {}
 ): Promise<boolean> {
@@ -30,6 +32,7 @@ export async function sendLarkMessage(
     showActionButton = true,
     actionUrl = `${SYSTEM_BASE_URL}/dashboard`,
     buttonText = "📋 申請メニューを開く",
+    receiveIdType = "open_id",
   } = options;
 
   try {
@@ -67,10 +70,10 @@ export async function sendLarkMessage(
     // Lark Message API を使用してメッセージを送信
     const response = await larkClient.im.message.create({
       params: {
-        receive_id_type: "open_id",
+        receive_id_type: receiveIdType,
       },
       data: {
-        receive_id: userId,
+        receive_id: receiveId,
         msg_type: "interactive",
         content: JSON.stringify({
           config: {

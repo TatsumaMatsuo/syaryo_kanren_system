@@ -51,8 +51,19 @@ export async function sendExpirationWarnings(): Promise<{
     // 通知テンプレート生成
     const template = createExpirationWarningTemplate(warning);
 
-    // Larkメッセージ送信
-    const success = await sendLarkMessage(warning.employeeId, template);
+    // メールアドレスがない場合はスキップ
+    if (!warning.employeeEmail) {
+      console.warn(
+        `[ExpirationMonitor] No email for employee ${warning.employeeId}, skipping notification`
+      );
+      failed++;
+      continue;
+    }
+
+    // Larkメッセージ送信（emailで送信）
+    const success = await sendLarkMessage(warning.employeeEmail, template, {
+      receiveIdType: "email",
+    });
 
     // 通知履歴を記録
     await createNotificationHistory({
@@ -127,8 +138,19 @@ export async function sendExpiredAlerts(): Promise<{
     // 通知テンプレート生成
     const template = createExpiredNotificationTemplate(warning);
 
-    // Larkメッセージ送信
-    const success = await sendLarkMessage(warning.employeeId, template);
+    // メールアドレスがない場合はスキップ
+    if (!warning.employeeEmail) {
+      console.warn(
+        `[ExpirationMonitor] No email for employee ${warning.employeeId}, skipping alert`
+      );
+      failed++;
+      continue;
+    }
+
+    // Larkメッセージ送信（emailで送信）
+    const success = await sendLarkMessage(warning.employeeEmail, template, {
+      receiveIdType: "email",
+    });
 
     // 通知履歴を記録
     await createNotificationHistory({
@@ -169,7 +191,7 @@ export async function sendExpiredAlerts(): Promise<{
     for (const admin of adminUsers) {
       // 管理者向けエスカレーション通知の重複チェック
       const isDuplicateAdmin = await isDuplicateNotification(
-        admin.lark_user_id,
+        admin.user_email || admin.lark_user_id,
         "admin_escalation",
         "admin_escalation"
       );
@@ -181,10 +203,21 @@ export async function sendExpiredAlerts(): Promise<{
         continue;
       }
 
-      const success = await sendLarkMessage(admin.lark_user_id, adminTemplate);
+      // メールアドレスがない場合はスキップ
+      if (!admin.user_email) {
+        console.warn(
+          `[ExpirationMonitor] No email for admin ${admin.user_name}, skipping escalation`
+        );
+        continue;
+      }
+
+      // Larkメッセージ送信（emailで送信）
+      const success = await sendLarkMessage(admin.user_email, adminTemplate, {
+        receiveIdType: "email",
+      });
 
       await createNotificationHistory({
-        recipient_id: admin.lark_user_id,
+        recipient_id: admin.user_email,
         notification_type: "admin_escalation",
         title: adminTemplate.title,
         message: adminTemplate.content,

@@ -270,22 +270,20 @@ node create-issues.js
 
 ### 【要対応】有効期限監視機能の通知送信
 
-**ステータス**: 一部解決
+**ステータス**: 解決済み ✅
 
 **解決済み**:
 1. ~~**通知履歴テーブルのフィールド未設定**~~ ✅ 解決済み（2026-01-09）
    - Lark Baseの通知履歴テーブル（tbl6kMI4S5x2f8QD）にフィールド作成済み
    - `recipient_id`, `notification_type`, `document_type`, `document_id`, `title`, `message`, `sent_at`, `status`, `created_at`
 
-**未解決**:
-2. **Larkメッセージ送信時のopen_id取得問題**
-   - 現在、社員ID（例: 00000162）を使用してLarkメッセージを送信しようとしている
-   - Lark APIはopen_id形式（例: ou_xxxxxxxxx）が必要
-   - 社員マスタからLark open_idを取得するロジックの修正が必要
-
-**影響範囲**:
-- 有効期限切れ通知の送信
-- 有効期限1週間前アラートの送信
+2. ~~**Larkメッセージ送信時のopen_id取得問題**~~ ✅ 解決済み（2026-01-09）
+   - 問題: 社員ID（例: 00000162）でLarkメッセージを送信しようとしていた
+   - 解決: `receive_id_type: "email"`を使用し、メールアドレスで通知送信に変更
+   - 変更ファイル:
+     - `services/lark-notification.service.ts`: `receiveIdType`オプション追加
+     - `services/expiration.service.ts`: `ExpirationWarning`に`employeeEmail`追加
+     - `services/expiration-monitor.job.ts`: メールアドレスで通知送信に変更
 
 ---
 

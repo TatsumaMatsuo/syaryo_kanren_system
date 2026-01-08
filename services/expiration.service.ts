@@ -22,6 +22,7 @@ export interface ExpirationWarning {
   documentId: string;
   employeeId: string;
   employeeName: string;
+  employeeEmail: string; // Lark通知送信用
   documentNumber: string;
   expirationDate: Date;
   daysUntilExpiration: number;
@@ -41,15 +42,16 @@ export async function getExpiringDocuments(): Promise<ExpirationWarning[]> {
     getEmployees(true), // 退職者含む全社員を取得
   ]);
 
-  // 社員IDから社員名を取得するマップを作成
+  // 社員IDから社員情報を取得するマップを作成
   // 社員コードとメールアドレス両方でマッチできるようにする
-  const employeeMap = new Map<string, string>();
+  const employeeMap = new Map<string, { name: string; email: string }>();
   employees.forEach((emp) => {
+    const info = { name: emp.employee_name, email: emp.email };
     if (emp.employee_id) {
-      employeeMap.set(emp.employee_id, emp.employee_name);
+      employeeMap.set(emp.employee_id, info);
     }
     if (emp.email) {
-      employeeMap.set(emp.email, emp.employee_name);
+      employeeMap.set(emp.email, info);
     }
   });
   console.log("[getExpiringDocuments] employeeMap size:", employeeMap.size);
@@ -62,11 +64,13 @@ export async function getExpiringDocuments(): Promise<ExpirationWarning[]> {
     const daysUntil = Math.ceil(
       (license.expiration_date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
     );
+    const empInfo = employeeMap.get(license.employee_id);
     warnings.push({
       type: "license",
       documentId: license.id,
       employeeId: license.employee_id,
-      employeeName: employeeMap.get(license.employee_id) || license.employee_id,
+      employeeName: empInfo?.name || license.employee_id,
+      employeeEmail: empInfo?.email || "",
       documentNumber: license.license_number,
       expirationDate: license.expiration_date,
       daysUntilExpiration: daysUntil,
@@ -79,11 +83,13 @@ export async function getExpiringDocuments(): Promise<ExpirationWarning[]> {
       (vehicle.inspection_expiration_date.getTime() - Date.now()) /
         (1000 * 60 * 60 * 24)
     );
+    const empInfo = employeeMap.get(vehicle.employee_id);
     warnings.push({
       type: "vehicle",
       documentId: vehicle.id,
       employeeId: vehicle.employee_id,
-      employeeName: employeeMap.get(vehicle.employee_id) || vehicle.employee_id,
+      employeeName: empInfo?.name || vehicle.employee_id,
+      employeeEmail: empInfo?.email || "",
       documentNumber: vehicle.vehicle_number,
       expirationDate: vehicle.inspection_expiration_date,
       daysUntilExpiration: daysUntil,
@@ -96,11 +102,13 @@ export async function getExpiringDocuments(): Promise<ExpirationWarning[]> {
       (insurance.coverage_end_date.getTime() - Date.now()) /
         (1000 * 60 * 60 * 24)
     );
+    const empInfo = employeeMap.get(insurance.employee_id);
     warnings.push({
       type: "insurance",
       documentId: insurance.id,
       employeeId: insurance.employee_id,
-      employeeName: employeeMap.get(insurance.employee_id) || insurance.employee_id,
+      employeeName: empInfo?.name || insurance.employee_id,
+      employeeEmail: empInfo?.email || "",
       documentNumber: insurance.policy_number,
       expirationDate: insurance.coverage_end_date,
       daysUntilExpiration: daysUntil,
@@ -121,15 +129,16 @@ export async function getExpiredDocuments(): Promise<ExpirationWarning[]> {
     getEmployees(true), // 退職者含む全社員を取得
   ]);
 
-  // 社員IDから社員名を取得するマップを作成
+  // 社員IDから社員情報を取得するマップを作成
   // 社員コードとメールアドレス両方でマッチできるようにする
-  const employeeMap = new Map<string, string>();
+  const employeeMap = new Map<string, { name: string; email: string }>();
   employees.forEach((emp) => {
+    const info = { name: emp.employee_name, email: emp.email };
     if (emp.employee_id) {
-      employeeMap.set(emp.employee_id, emp.employee_name);
+      employeeMap.set(emp.employee_id, info);
     }
     if (emp.email) {
-      employeeMap.set(emp.email, emp.employee_name);
+      employeeMap.set(emp.email, info);
     }
   });
 
@@ -140,11 +149,13 @@ export async function getExpiredDocuments(): Promise<ExpirationWarning[]> {
     const daysOverdue = Math.ceil(
       (Date.now() - license.expiration_date.getTime()) / (1000 * 60 * 60 * 24)
     );
+    const empInfo = employeeMap.get(license.employee_id);
     warnings.push({
       type: "license",
       documentId: license.id,
       employeeId: license.employee_id,
-      employeeName: employeeMap.get(license.employee_id) || license.employee_id,
+      employeeName: empInfo?.name || license.employee_id,
+      employeeEmail: empInfo?.email || "",
       documentNumber: license.license_number,
       expirationDate: license.expiration_date,
       daysUntilExpiration: -daysOverdue,
@@ -157,11 +168,13 @@ export async function getExpiredDocuments(): Promise<ExpirationWarning[]> {
       (Date.now() - vehicle.inspection_expiration_date.getTime()) /
         (1000 * 60 * 60 * 24)
     );
+    const empInfo = employeeMap.get(vehicle.employee_id);
     warnings.push({
       type: "vehicle",
       documentId: vehicle.id,
       employeeId: vehicle.employee_id,
-      employeeName: employeeMap.get(vehicle.employee_id) || vehicle.employee_id,
+      employeeName: empInfo?.name || vehicle.employee_id,
+      employeeEmail: empInfo?.email || "",
       documentNumber: vehicle.vehicle_number,
       expirationDate: vehicle.inspection_expiration_date,
       daysUntilExpiration: -daysOverdue,
@@ -174,11 +187,13 @@ export async function getExpiredDocuments(): Promise<ExpirationWarning[]> {
       (Date.now() - insurance.coverage_end_date.getTime()) /
         (1000 * 60 * 60 * 24)
     );
+    const empInfo = employeeMap.get(insurance.employee_id);
     warnings.push({
       type: "insurance",
       documentId: insurance.id,
       employeeId: insurance.employee_id,
-      employeeName: employeeMap.get(insurance.employee_id) || insurance.employee_id,
+      employeeName: empInfo?.name || insurance.employee_id,
+      employeeEmail: empInfo?.email || "",
       documentNumber: insurance.policy_number,
       expirationDate: insurance.coverage_end_date,
       daysUntilExpiration: -daysOverdue,
