@@ -61,6 +61,21 @@ function getAttachmentFilename(attachment: any): string | null {
   return att?.name || null;
 }
 
+// image_attachmentからファイルタイプを取得
+function getAttachmentType(attachment: any): string | null {
+  if (!attachment) return null;
+  const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  return att?.type || null;
+}
+
+// 添付ファイルがPDFかどうかを判定
+function isAttachmentPdf(attachment: any): boolean {
+  const type = getAttachmentType(attachment);
+  if (type && type.includes('pdf')) return true;
+  const filename = getAttachmentFilename(attachment);
+  return isPdfFileByExtension(filename || undefined);
+}
+
 export default function ApplicationDetailPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -853,7 +868,7 @@ export default function ApplicationDetailPage() {
           {selectedDoc.category === "license" ? (
             <>
               <div className="bg-gray-800 px-4 py-3">
-                <h3 className="text-white font-medium">{getDocumentTitle()} - 画像</h3>
+                <h3 className="text-white font-medium">{getDocumentTitle()} - ファイル</h3>
               </div>
               <div className="flex-1 p-4 overflow-auto">
                 <div className="space-y-4">
@@ -872,17 +887,27 @@ export default function ApplicationDetailPage() {
                         </a>
                       )}
                     </div>
-                    <div className="aspect-[16/10] bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div className="bg-gray-800 rounded-lg overflow-hidden" style={{ height: '400px' }}>
                       {getCurrentFileUrl() ? (
-                        <img
-                          src={getCurrentFileUrl()!}
-                          alt="運転免許証（表面）"
-                          className="max-w-full max-h-full object-contain"
-                        />
+                        isAttachmentPdf(application.license?.image_attachment) ? (
+                          <iframe
+                            src={getCurrentFileUrl()!}
+                            className="w-full h-full border-0"
+                            title="運転免許証（表面）"
+                          />
+                        ) : (
+                          <img
+                            src={getCurrentFileUrl()!}
+                            alt="運転免許証（表面）"
+                            className="w-full h-full object-contain"
+                          />
+                        )
                       ) : (
-                        <div className="text-center text-gray-500">
-                          <FileText className="h-12 w-12 mx-auto mb-2" />
-                          <p className="text-sm">画像なし</p>
+                        <div className="h-full flex items-center justify-center text-gray-500">
+                          <div className="text-center">
+                            <FileText className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-sm">画像なし</p>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -902,17 +927,27 @@ export default function ApplicationDetailPage() {
                         </a>
                       )}
                     </div>
-                    <div className="aspect-[16/10] bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                    <div className="bg-gray-800 rounded-lg overflow-hidden" style={{ height: '400px' }}>
                       {getLicenseBackFileUrl() ? (
-                        <img
-                          src={getLicenseBackFileUrl()!}
-                          alt="運転免許証（裏面）"
-                          className="max-w-full max-h-full object-contain"
-                        />
+                        isAttachmentPdf(application.license?.image_attachment_ura) ? (
+                          <iframe
+                            src={getLicenseBackFileUrl()!}
+                            className="w-full h-full border-0"
+                            title="運転免許証（裏面）"
+                          />
+                        ) : (
+                          <img
+                            src={getLicenseBackFileUrl()!}
+                            alt="運転免許証（裏面）"
+                            className="w-full h-full object-contain"
+                          />
+                        )
                       ) : (
-                        <div className="text-center text-gray-500">
-                          <FileText className="h-12 w-12 mx-auto mb-2" />
-                          <p className="text-sm">画像なし</p>
+                        <div className="h-full flex items-center justify-center text-gray-500">
+                          <div className="text-center">
+                            <FileText className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-sm">画像なし</p>
+                          </div>
                         </div>
                       )}
                     </div>

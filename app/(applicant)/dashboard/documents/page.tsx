@@ -19,27 +19,7 @@ import {
   Plus,
 } from "lucide-react";
 import { LarkAttachment } from "@/types";
-
-// image_attachmentからファイルURLを取得（管理画面と同じ方式）
-function getAttachmentUrl(attachment: LarkAttachment | LarkAttachment[] | undefined | null): string | null {
-  if (!attachment) return null;
-  // 配列の場合は最初の要素を使用
-  const att = Array.isArray(attachment) ? attachment[0] : attachment;
-  // API経由でダウンロード（Lark URLは認証が必要なため直接使用不可）
-  if (att?.file_token) {
-    // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
-    const baseUrl = `/api/attachments/${att.file_token}`;
-    // tmp_urlを優先、次にurlを使用
-    if (att.tmp_url) {
-      return `${baseUrl}?url=${encodeURIComponent(att.tmp_url)}`;
-    }
-    if (att.url) {
-      return `${baseUrl}?url=${encodeURIComponent(att.url)}`;
-    }
-    return baseUrl;
-  }
-  return null;
-}
+import { AttachmentViewer } from "@/components/ui/attachment-viewer";
 
 interface DocumentData {
   id: string;
@@ -421,67 +401,41 @@ export default function MyDocumentsPage() {
                   {/* 表面 */}
                   <div>
                     <p className="text-xs text-gray-500 mb-1">表面</p>
-                    <div className="aspect-[16/10] bg-white border rounded flex items-center justify-center">
-                      {getAttachmentUrl(currentDoc.image_attachment) ? (
-                        <img
-                          src={getAttachmentUrl(currentDoc.image_attachment)!}
-                          alt="運転免許証（表面）"
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      ) : (
-                        <div className="text-gray-400 text-center">
-                          <FileText className="h-8 w-8 mx-auto mb-1" />
-                          <p className="text-xs">なし</p>
-                        </div>
-                      )}
-                    </div>
+                    <AttachmentViewer
+                      attachment={currentDoc.image_attachment}
+                      title="運転免許証（表面）"
+                      aspectClass="aspect-[16/10]"
+                      enableModal={true}
+                    />
                   </div>
                   {/* 裏面 */}
                   <div>
                     <p className="text-xs text-gray-500 mb-1">裏面</p>
-                    <div className="aspect-[16/10] bg-white border rounded flex items-center justify-center">
-                      {getAttachmentUrl(currentDoc.image_attachment_ura) ? (
-                        <img
-                          src={getAttachmentUrl(currentDoc.image_attachment_ura)!}
-                          alt="運転免許証（裏面）"
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      ) : (
-                        <div className="text-gray-400 text-center">
-                          <FileText className="h-8 w-8 mx-auto mb-1" />
-                          <p className="text-xs">なし</p>
-                        </div>
-                      )}
-                    </div>
+                    <AttachmentViewer
+                      attachment={currentDoc.image_attachment_ura}
+                      title="運転免許証（裏面）"
+                      aspectClass="aspect-[16/10]"
+                      enableModal={true}
+                    />
                   </div>
                 </div>
-              ) : (
+              ) : selectedDoc && currentDoc ? (
                 // 車検証・保険証の場合は従来通り1枚表示
-                <div className="aspect-[4/3] flex items-center justify-center">
-                  {(() => {
-                    const url = getAttachmentUrl(currentDoc?.image_attachment);
-                    console.log("[documents] image URL:", url, "attachment:", currentDoc?.image_attachment);
-                    return url;
-                  })() ? (
-                    <img
-                      src={getAttachmentUrl(currentDoc?.image_attachment)!}
-                      alt={
-                        selectedDoc?.type === "vehicle" ? "車検証" : "任意保険証"
-                      }
-                      className="max-w-full max-h-full object-contain"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-center text-gray-400">
-                      <div>
-                        <FileText className="h-16 w-16 mx-auto mb-2" />
-                        <p>
-                          {selectedDoc
-                            ? "画像がアップロードされていません"
-                            : "左の書類を選択してください"}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                <div className="p-4">
+                  <AttachmentViewer
+                    attachment={currentDoc.image_attachment}
+                    title={selectedDoc.type === "vehicle" ? "車検証" : "任意保険証"}
+                    aspectClass="aspect-[4/3]"
+                    enableModal={true}
+                  />
+                </div>
+              ) : (
+                // 未選択状態
+                <div className="aspect-[4/3] flex items-center justify-center text-center text-gray-400">
+                  <div>
+                    <FileText className="h-16 w-16 mx-auto mb-2" />
+                    <p>左の書類を選択してください</p>
+                  </div>
                 </div>
               )}
             </div>

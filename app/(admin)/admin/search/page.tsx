@@ -1,26 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { Search, FileText, Car, Shield, User, Calendar, CheckCircle, XCircle, Clock, Image as ImageIcon } from "lucide-react";
+import { Search, FileText, Car, Shield, User, Calendar, CheckCircle, XCircle, Clock, Image as ImageIcon, Download } from "lucide-react";
 import { LarkUser, DriversLicense, VehicleRegistration, InsurancePolicy, LarkAttachment } from "@/types";
+import { AttachmentViewer } from "@/components/ui/attachment-viewer";
 
-// image_attachmentからファイルURLを取得（ダッシュボードと同じ方式）
+// image_attachmentからファイルURLを取得
 function getAttachmentUrl(attachment: LarkAttachment | LarkAttachment[] | undefined | null): string | null {
   if (!attachment) return null;
-  // 配列の場合は最初の要素を使用
   const att = Array.isArray(attachment) ? attachment[0] : attachment;
-  // API経由でダウンロード（Lark URLは認証が必要なため直接使用不可）
-  if (att?.file_token) {
-    // Lark Base から取得したダウンロードURLをクエリパラメータとして渡す
-    const baseUrl = `/api/attachments/${att.file_token}`;
-    // url（直接ダウンロードURL）を優先的に使用
-    const downloadUrl = att.url;
-    if (downloadUrl) {
-      return `${baseUrl}?url=${encodeURIComponent(downloadUrl)}`;
-    }
-    return baseUrl;
-  }
-  return null;
+  if (!att?.file_token) return null;
+  const baseUrl = `/api/attachments/${att.file_token}`;
+  const downloadUrl = att.url;
+  return downloadUrl ? `${baseUrl}?url=${encodeURIComponent(downloadUrl)}` : baseUrl;
+}
+
+// 添付ファイルがPDFかどうかを判定
+function isAttachmentPdf(attachment: LarkAttachment | LarkAttachment[] | undefined | null): boolean {
+  if (!attachment) return false;
+  const att = Array.isArray(attachment) ? attachment[0] : attachment;
+  if (att?.type && att.type.includes('pdf')) return true;
+  if (att?.name && att.name.toLowerCase().endsWith('.pdf')) return true;
+  return false;
 }
 
 interface UserDocuments {
@@ -36,7 +37,7 @@ export default function SearchPage() {
   const [selectedUser, setSelectedUser] = useState<LarkUser | null>(null);
   const [documents, setDocuments] = useState<UserDocuments | null>(null);
   const [loading, setLoading] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedAttachment, setSelectedAttachment] = useState<{ attachment: LarkAttachment | LarkAttachment[]; title: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // ユーザー検索
@@ -264,38 +265,88 @@ export default function SearchPage() {
                         </div>
                       </div>
                     </div>
-                    {/* 免許証画像（表面・裏面）- 横向き2段表示 */}
+                    {/* 免許証画像（表面・裏面）- 縦2段表示（申請詳細と同じ仕様） */}
                     <div className="space-y-4">
-                      {documents.license.image_attachment && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">表面</p>
-                          <div
-                            className="relative aspect-[16/10] border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity bg-gray-100"
-                            onClick={() => setSelectedImage(getAttachmentUrl(documents.license!.image_attachment))}
-                          >
-                            <img
-                              src={getAttachmentUrl(documents.license.image_attachment)!}
-                              alt="免許証（表面）"
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
+                      {/* 表面 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-gray-500 text-sm">表面</p>
+                          {getAttachmentUrl(documents.license.image_attachment) && (
+                            <a
+                              href={getAttachmentUrl(documents.license.image_attachment)!}
+                              download
+                              className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500 transition-colors flex items-center"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              ダウンロード
+                            </a>
+                          )}
                         </div>
-                      )}
-                      {documents.license.image_attachment_ura && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">裏面</p>
-                          <div
-                            className="relative aspect-[16/10] border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity bg-gray-100"
-                            onClick={() => setSelectedImage(getAttachmentUrl(documents.license!.image_attachment_ura))}
-                          >
-                            <img
-                              src={getAttachmentUrl(documents.license.image_attachment_ura)!}
-                              alt="免許証（裏面）"
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
+                        <div className="bg-gray-800 rounded-lg overflow-hidden" style={{ height: '300px' }}>
+                          {getAttachmentUrl(documents.license.image_attachment) ? (
+                            isAttachmentPdf(documents.license.image_attachment) ? (
+                              <iframe
+                                src={getAttachmentUrl(documents.license.image_attachment)!}
+                                className="w-full h-full border-0"
+                                title="運転免許証（表面）"
+                              />
+                            ) : (
+                              <img
+                                src={getAttachmentUrl(documents.license.image_attachment)!}
+                                alt="運転免許証（表面）"
+                                className="w-full h-full object-contain"
+                              />
+                            )
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <div className="text-center">
+                                <FileText className="h-12 w-12 mx-auto mb-2" />
+                                <p className="text-sm">画像なし</p>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                      {/* 裏面 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-gray-500 text-sm">裏面</p>
+                          {getAttachmentUrl(documents.license.image_attachment_ura) && (
+                            <a
+                              href={getAttachmentUrl(documents.license.image_attachment_ura)!}
+                              download
+                              className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500 transition-colors flex items-center"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              ダウンロード
+                            </a>
+                          )}
+                        </div>
+                        <div className="bg-gray-800 rounded-lg overflow-hidden" style={{ height: '300px' }}>
+                          {getAttachmentUrl(documents.license.image_attachment_ura) ? (
+                            isAttachmentPdf(documents.license.image_attachment_ura) ? (
+                              <iframe
+                                src={getAttachmentUrl(documents.license.image_attachment_ura)!}
+                                className="w-full h-full border-0"
+                                title="運転免許証（裏面）"
+                              />
+                            ) : (
+                              <img
+                                src={getAttachmentUrl(documents.license.image_attachment_ura)!}
+                                alt="運転免許証（裏面）"
+                                className="w-full h-full object-contain"
+                              />
+                            )
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <div className="text-center">
+                                <FileText className="h-12 w-12 mx-auto mb-2" />
+                                <p className="text-sm">画像なし</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -348,18 +399,45 @@ export default function SearchPage() {
                         </div>
                       </div>
                     </div>
-                    {documents.vehicle.image_attachment && (
-                      <div
-                        className="relative h-40 border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setSelectedImage(getAttachmentUrl(documents.vehicle!.image_attachment))}
-                      >
-                        <img
-                          src={getAttachmentUrl(documents.vehicle.image_attachment)!}
-                          alt="車検証"
-                          className="w-full h-full object-cover"
-                        />
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-gray-500 text-sm">画像</p>
+                        {getAttachmentUrl(documents.vehicle.image_attachment) && (
+                          <a
+                            href={getAttachmentUrl(documents.vehicle.image_attachment)!}
+                            download
+                            className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500 transition-colors flex items-center"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            ダウンロード
+                          </a>
+                        )}
                       </div>
-                    )}
+                      <div className="bg-gray-800 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                        {getAttachmentUrl(documents.vehicle.image_attachment) ? (
+                          isAttachmentPdf(documents.vehicle.image_attachment) ? (
+                            <iframe
+                              src={getAttachmentUrl(documents.vehicle.image_attachment)!}
+                              className="w-full h-full border-0"
+                              title="車検証"
+                            />
+                          ) : (
+                            <img
+                              src={getAttachmentUrl(documents.vehicle.image_attachment)!}
+                              alt="車検証"
+                              className="w-full h-full object-contain"
+                            />
+                          )
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-gray-500">
+                            <div className="text-center">
+                              <FileText className="h-12 w-12 mx-auto mb-2" />
+                              <p className="text-sm">画像なし</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500 text-sm">登録されていません</p>
@@ -414,18 +492,45 @@ export default function SearchPage() {
                           </div>
                         </div>
                       </div>
-                      {documents.insurance.image_attachment && (
-                        <div
-                          className="relative h-40 border rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setSelectedImage(getAttachmentUrl(documents.insurance!.image_attachment))}
-                        >
-                          <img
-                            src={getAttachmentUrl(documents.insurance.image_attachment)!}
-                            alt="任意保険証"
-                            className="w-full h-full object-cover"
-                          />
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-gray-500 text-sm">画像</p>
+                          {getAttachmentUrl(documents.insurance.image_attachment) && (
+                            <a
+                              href={getAttachmentUrl(documents.insurance.image_attachment)!}
+                              download
+                              className="px-3 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-500 transition-colors flex items-center"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              ダウンロード
+                            </a>
+                          )}
                         </div>
-                      )}
+                        <div className="bg-gray-800 rounded-lg overflow-hidden" style={{ height: '200px' }}>
+                          {getAttachmentUrl(documents.insurance.image_attachment) ? (
+                            isAttachmentPdf(documents.insurance.image_attachment) ? (
+                              <iframe
+                                src={getAttachmentUrl(documents.insurance.image_attachment)!}
+                                className="w-full h-full border-0"
+                                title="任意保険証"
+                              />
+                            ) : (
+                              <img
+                                src={getAttachmentUrl(documents.insurance.image_attachment)!}
+                                alt="任意保険証"
+                                className="w-full h-full object-contain"
+                              />
+                            )
+                          ) : (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                              <div className="text-center">
+                                <FileText className="h-12 w-12 mx-auto mb-2" />
+                                <p className="text-sm">画像なし</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* 補償内容 */}
@@ -506,34 +611,6 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* 画像モーダル */}
-      {selectedImage && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-          onClick={() => setSelectedImage(null)}
-        >
-          <div
-            className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-end p-2 border-b">
-              <button
-                onClick={() => setSelectedImage(null)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-[80vh] bg-gray-100 flex items-center justify-center">
-              <img
-                src={selectedImage}
-                alt="書類"
-                className="max-w-full max-h-full object-contain"
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
