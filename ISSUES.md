@@ -270,13 +270,14 @@ node create-issues.js
 
 ### 【要対応】有効期限監視機能の通知送信
 
-**ステータス**: 未解決
+**ステータス**: 一部解決
 
-**問題点**:
-1. **通知履歴テーブルのフィールド未設定**
-   - Lark Baseの通知履歴テーブル（tbl6kMI4S5x2f8QD）に以下のフィールドを作成する必要あり
+**解決済み**:
+1. ~~**通知履歴テーブルのフィールド未設定**~~ ✅ 解決済み（2026-01-09）
+   - Lark Baseの通知履歴テーブル（tbl6kMI4S5x2f8QD）にフィールド作成済み
    - `recipient_id`, `notification_type`, `document_type`, `document_id`, `title`, `message`, `sent_at`, `status`, `created_at`
 
+**未解決**:
 2. **Larkメッセージ送信時のopen_id取得問題**
    - 現在、社員ID（例: 00000162）を使用してLarkメッセージを送信しようとしている
    - Lark APIはopen_id形式（例: ou_xxxxxxxxx）が必要
